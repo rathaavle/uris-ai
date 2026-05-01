@@ -1,0 +1,188 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.11"
+  POETRY_VERSION: "1.7.1"
+
+jobs:
+  # Build and Test
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Run linting (Ruff)
+        run: poetry run ruff check src/ tests/
+
+      - name: Run type checking (mypy)
+        run: poetry run mypy src/ || true
+
+      - name: Run unit tests
+        run: poetry run pytest tests/ -v --cov=src/uris_ai --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  # Deploy to Staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://uris-ai-api-staging.azurewebsites.net
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service (API)
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: uris-ai-api-staging
+          package: .
+
+      - name: Deploy to Azure App Service (Dashboard)
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: uris-ai-dashboard-staging
+          package: .
+
+  # Run E2E Tests on Staging
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install pytest requests
+
+      - name: Run E2E tests
+        run: |
+          pytest tests/e2e/ -v
+        env:
+          API_URL: https://uris-ai-api-staging.azurewebsites.net
+
+  # Deploy to Production
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://uris-ai-api-production.azurewebsites.net
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create deployment slot (green)
+        run: |
+          az webapp deployment slot create \
+            --resource-group uris-ai-rg \
+            --name uris-ai-api-production \
+            --slot green || true
+
+      - name: Deploy to green slot
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: uris-ai-api-production
+          slot-name: green
+          package: .
+
+      - name: Run smoke tests on green slot
+        run: |
+          sleep 30
+          curl -f https://uris-ai-api-production-green.azurewebsites.net/health
+
+      - name: Swap slots (blue-green deployment)
+        run: |
+          az webapp deployment slot swap \
+            --resource-group uris-ai-rg \
+            --name uris-ai-api-production \
+            --slot green \
+            --target-slot production
+
+      - name: Monitor production
+        run: |
+          sleep 30
+          curl -f https://uris-ai-api-production.azurewebsites.net/health
