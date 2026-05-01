@@ -514,16 +514,22 @@ class TestHistoricalFloodLoader:
         assert batch.data[0].region_id == 1
 
     def test_data_normalization(self, tmp_path):
-        """Test that data is normalized correctly."""
-        # Create test data with out-of-range values
+        """Test that out-of-range data is rejected during validation."""
+        # Create test data with out-of-range values that should be rejected
         test_data = {
             "events": [
                 {
                     "region_id": 1,
                     "date": "2024-01-15",
-                    "severity": 5,  # > 4, should be clamped to 4
-                    "water_level": -10.0,  # < 0, should be clamped to 0
-                }
+                    "severity": 5,  # > 4, invalid — rejected by schema
+                    "water_level": -10.0,  # < 0, invalid — rejected by schema
+                },
+                {
+                    "region_id": 2,
+                    "date": "2024-01-16",
+                    "severity": 3,
+                    "water_level": 50.0,
+                },
             ]
         }
 
@@ -535,12 +541,13 @@ class TestHistoricalFloodLoader:
         loader._blob_service_client = Mock()
 
         batch = loader.fetch_flood_history(
-            [1], date(2024, 1, 1), date(2024, 12, 31)
+            [1, 2], date(2024, 1, 1), date(2024, 12, 31)
         )
 
+        # Event 1 is rejected due to out-of-range values; only event 2 passes
         assert len(batch.data) == 1
-        assert batch.data[0].severity == 4  # Clamped
-        assert batch.data[0].water_level == 0  # Clamped
+        assert batch.data[0].region_id == 2
+        assert batch.data[0].severity == 3
 
 
 class TestOSMDataFetcher:

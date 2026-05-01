@@ -148,8 +148,7 @@ class WeatherAPIConnector(DataIntegrator):
                 logger.error(
                     f"Unexpected error fetching weather data for region {region_id}: {e}"
                 )
-                # Don't retry on unexpected errors
-                break
+                # Retry on all exceptions to allow recovery from transient errors
 
         # All retries exhausted
         error_msg = (
