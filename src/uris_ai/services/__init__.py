@@ -1,1 +1,1 @@
-"""Business logic services module."""
+"""Services package for URIS-AI."""
