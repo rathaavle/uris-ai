@@ -59,3 +59,40 @@ def sample_weather_data() -> dict:
 def sample_datetime() -> datetime:
     """Sample datetime for testing."""
     return datetime(2024, 1, 15, 10, 30, 0)
+
+
+# Mock settings for data ingestion tests
+from unittest.mock import Mock, patch
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_settings():
+    """Mock settings to avoid requiring environment variables during tests."""
+    with patch("src.uris_ai.config.Settings") as mock_settings_class:
+        mock_instance = Mock()
+        
+        # Set default values for all required settings
+        mock_instance.azure_subscription_id = "test-subscription"
+        mock_instance.azure_tenant_id = "test-tenant"
+        mock_instance.azure_storage_connection_string = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=test;EndpointSuffix=core.windows.net"
+        mock_instance.azure_storage_container_raw_data = "raw-data"
+        mock_instance.weather_api_url = "https://api.test.com/weather"
+        mock_instance.weather_api_key = "test-key"
+        mock_instance.osm_api_url = "https://overpass-api.de/api/interpreter"
+        
+        mock_settings_class.return_value = mock_instance
+        
+        # Also patch the settings instance
+        with patch("src.uris_ai.config.settings", mock_instance):
+            yield mock_instance
+
+
+@pytest.fixture
+def mock_blob_storage():
+    """Mock Azure Blob Storage client."""
+    mock_client = Mock()
+    mock_blob_client = Mock()
+    mock_blob_client.url = "https://test.blob.core.windows.net/container/blob.json"
+    mock_blob_client.get_blob_properties.return_value = Mock(size=1024)
+    mock_client.get_blob_client.return_value = mock_blob_client
+    return mock_client
