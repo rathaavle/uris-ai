@@ -14,6 +14,10 @@ from .flood_risk_engine import (
     FloodRiskPrediction,
     UpdateResult,
 )
+from .risk_scoring_engine import (
+    RiskScoringEngine,
+    RiskScorePoint,
+)
 
 __all__ = [
     "FloodRiskEngine",
@@ -23,4 +27,6 @@ __all__ = [
     "RegionFeatures",
     "FloodRiskPrediction",
     "UpdateResult",
+    "RiskScoringEngine",
+    "RiskScorePoint",
 ]
