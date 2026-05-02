@@ -6,3 +6,8 @@ location            = "southeastasia"
 environment         = "dev"
 sql_admin_username  = "sqladmin"
 sql_admin_password  = "YourSecurePassword123!"
+
+# Blue-Green Deployment Configuration
+# Set to true for production environment to enable zero-downtime deployments
+enable_blue_green      = false
+deployment_slot_name   = "green"

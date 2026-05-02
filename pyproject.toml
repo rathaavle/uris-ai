@@ -69,3 +69,8 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=src/uris_ai --cov-report=html --cov-report=term"
+markers = [
+    "smoke: mark test as a smoke test for deployment validation",
+    "integration: mark test as an integration test",
+    "unit: mark test as a unit test",
+]

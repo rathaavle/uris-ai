@@ -35,6 +35,18 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "enable_blue_green" {
+  description = "Enable blue-green deployment slots"
+  type        = bool
+  default     = false
+}
+
+variable "deployment_slot_name" {
+  description = "Name of the deployment slot for blue-green deployment"
+  type        = string
+  default     = "green"
+}
+
 variable "sql_admin_username" {
   description = "SQL Server admin username"
   type        = string
@@ -242,6 +254,121 @@ resource "azurerm_linux_web_app" "dashboard" {
   }
 }
 
+# Blue-Green Deployment Slots (only for production)
+resource "azurerm_linux_web_app_slot" "api_green" {
+  count              = var.enable_blue_green ? 1 : 0
+  name               = var.deployment_slot_name
+  app_service_id     = azurerm_linux_web_app.api.id
+
+  site_config {
+    always_on = false
+    application_stack {
+      python_version = "3.11"
+    }
+    health_check_path = "/health/ready"
+    health_check_eviction_time_in_min = 2
+  }
+
+  app_settings = {
+    "AZURE_SQL_CONNECTION_STRING"     = "Driver={ODBC Driver 18 for SQL Server};Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.main.name};Uid=${var.sql_admin_username};Pwd=${var.sql_admin_password};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+    "AZURE_STORAGE_CONNECTION_STRING" = azurerm_storage_account.main.primary_connection_string
+    "AZURE_KEY_VAULT_URL"             = azurerm_key_vault.main.vault_uri
+    "REDIS_URL"                       = "rediss://:${azurerm_redis_cache.main.primary_access_key}@${azurerm_redis_cache.main.hostname}:${azurerm_redis_cache.main.ssl_port}"
+    "SLOT_NAME"                       = var.deployment_slot_name
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "URIS-AI"
+    Slot        = var.deployment_slot_name
+  }
+}
+
+resource "azurerm_linux_web_app_slot" "dashboard_green" {
+  count              = var.enable_blue_green ? 1 : 0
+  name               = var.deployment_slot_name
+  app_service_id     = azurerm_linux_web_app.dashboard.id
+
+  site_config {
+    always_on = false
+    application_stack {
+      python_version = "3.11"
+    }
+    health_check_path = "/"
+    health_check_eviction_time_in_min = 2
+  }
+
+  app_settings = {
+    "API_URL"   = var.enable_blue_green ? "https://${azurerm_linux_web_app.api.name}-${var.deployment_slot_name}.azurewebsites.net" : "https://${azurerm_linux_web_app.api.default_hostname}"
+    "SLOT_NAME" = var.deployment_slot_name
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "URIS-AI"
+    Slot        = var.deployment_slot_name
+  }
+}
+
+# Application Insights for monitoring
+resource "azurerm_application_insights" "main" {
+  name                = "uris-ai-insights-${var.environment}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  application_type    = "web"
+
+  tags = {
+    Environment = var.environment
+    Project     = "URIS-AI"
+  }
+}
+
+# Traffic Manager Profile for automatic failover
+resource "azurerm_traffic_manager_profile" "main" {
+  count                  = var.enable_blue_green ? 1 : 0
+  name                   = "uris-ai-tm-${var.environment}"
+  resource_group_name    = azurerm_resource_group.main.name
+  traffic_routing_method = "Priority"
+
+  dns_config {
+    relative_name = "uris-ai-${var.environment}"
+    ttl           = 30
+  }
+
+  monitor_config {
+    protocol                     = "HTTPS"
+    port                         = 443
+    path                         = "/health/ready"
+    interval_in_seconds          = 30
+    timeout_in_seconds           = 10
+    tolerated_number_of_failures = 3
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "URIS-AI"
+  }
+}
+
+# Traffic Manager Endpoints
+resource "azurerm_traffic_manager_azure_endpoint" "api_primary" {
+  count              = var.enable_blue_green ? 1 : 0
+  name               = "api-primary"
+  profile_id         = azurerm_traffic_manager_profile.main[0].id
+  target_resource_id = azurerm_linux_web_app.api.id
+  priority           = 1
+  weight             = 100
+}
+
+resource "azurerm_traffic_manager_azure_endpoint" "api_secondary" {
+  count              = var.enable_blue_green ? 1 : 0
+  name               = "api-secondary"
+  profile_id         = azurerm_traffic_manager_profile.main[0].id
+  target_resource_id = azurerm_linux_web_app_slot.api_green[0].id
+  priority           = 2
+  weight             = 100
+}
+
 # Outputs
 output "resource_group_name" {
   value = azurerm_resource_group.main.name
@@ -269,4 +396,26 @@ output "api_url" {
 
 output "dashboard_url" {
   value = "https://${azurerm_linux_web_app.dashboard.default_hostname}"
+}
+
+output "api_green_slot_url" {
+  value = var.enable_blue_green ? "https://${azurerm_linux_web_app.api.name}-${var.deployment_slot_name}.azurewebsites.net" : null
+}
+
+output "dashboard_green_slot_url" {
+  value = var.enable_blue_green ? "https://${azurerm_linux_web_app.dashboard.name}-${var.deployment_slot_name}.azurewebsites.net" : null
+}
+
+output "traffic_manager_fqdn" {
+  value = var.enable_blue_green ? azurerm_traffic_manager_profile.main[0].fqdn : null
+}
+
+output "application_insights_instrumentation_key" {
+  value     = azurerm_application_insights.main.instrumentation_key
+  sensitive = true
+}
+
+output "application_insights_connection_string" {
+  value     = azurerm_application_insights.main.connection_string
+  sensitive = true
 }

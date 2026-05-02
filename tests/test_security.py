@@ -91,25 +91,55 @@ class TestAuthorization:
     Requirements: 10.2
     """
 
-    def test_unauthenticated_access_denied(self):
+    def test_unauthenticated_access_denied(self, db_session):
         """Test that unauthenticated requests are denied."""
-        client = TestClient(app)
+        from uris_ai.api.dependencies import get_db
         
-        # Try to access protected endpoint without token
-        response = client.get("/regions/1/risk")
+        # Override the database dependency with test database
+        def override_get_db():
+            try:
+                yield db_session
+            finally:
+                pass
         
-        # Should return 401 Unauthorized
-        assert response.status_code == 401
+        app.dependency_overrides[get_db] = override_get_db
+        
+        try:
+            client = TestClient(app)
+            
+            # Try to access protected endpoint without token
+            response = client.get("/regions/1/risk")
+            
+            # Should return 401 Unauthorized
+            assert response.status_code == 401
+        finally:
+            # Clean up override
+            app.dependency_overrides.clear()
 
-    def test_invalid_token_rejected(self):
+    def test_invalid_token_rejected(self, db_session):
         """Test that invalid tokens are rejected."""
-        client = TestClient(app)
+        from uris_ai.api.dependencies import get_db
         
-        headers = {"Authorization": "Bearer invalid_token"}
-        response = client.get("/regions/1/risk", headers=headers)
+        # Override the database dependency with test database
+        def override_get_db():
+            try:
+                yield db_session
+            finally:
+                pass
         
-        # Should return 401 Unauthorized
-        assert response.status_code == 401
+        app.dependency_overrides[get_db] = override_get_db
+        
+        try:
+            client = TestClient(app)
+            
+            headers = {"Authorization": "Bearer invalid_token"}
+            response = client.get("/regions/1/risk", headers=headers)
+            
+            # Should return 401 Unauthorized
+            assert response.status_code == 401
+        finally:
+            # Clean up override
+            app.dependency_overrides.clear()
 
 
 class TestInputValidation:
