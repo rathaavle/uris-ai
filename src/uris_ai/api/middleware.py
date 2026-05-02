@@ -4,6 +4,7 @@ Custom middleware for URIS-AI FastAPI application.
 Includes:
 - Rate limiting middleware (Requirements: 8.2)
 - Request logging middleware
+- Application Insights tracking middleware (Requirements: 8.4)
 """
 
 import logging
@@ -14,6 +15,8 @@ from typing import Callable, Dict, Tuple
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from uris_ai.utils.monitoring import app_insights
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +150,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """
     Middleware that logs each request with method, path, status, and duration.
+    Also tracks requests in Application Insights.
+    
+    Requirements: 8.4
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -154,8 +160,27 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         duration_ms = (time.time() - start) * 1000
 
+        # Log request
         logger.info(
             f"{request.method} {request.url.path} "
             f"→ {response.status_code} ({duration_ms:.1f}ms)"
         )
+        
+        # Track in Application Insights
+        app_insights.track_request(
+            name=f"{request.method} {request.url.path}",
+            duration_ms=duration_ms,
+            success=response.status_code < 400,
+            response_code=response.status_code,
+            properties={
+                "method": request.method,
+                "path": request.url.path,
+                "client_ip": request.client.host if request.client else "unknown",
+            },
+        )
+        
+        # Track errors
+        if response.status_code >= 400:
+            app_insights.track_error()
+        
         return response

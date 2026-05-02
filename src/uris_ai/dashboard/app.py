@@ -3,7 +3,7 @@ URIS-AI Streamlit Dashboard Application.
 
 Main entry point for the Streamlit dashboard.
 
-Requirements: 6.1, 6.2, 6.5, 6.6, 10.1, 10.3
+Requirements: 6.1, 6.2, 6.5, 6.6, 8.4, 10.1, 10.3
 """
 
 from __future__ import annotations
@@ -13,6 +13,15 @@ import os
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
+
+# Setup logging before any other imports
+from uris_ai.utils.logging_config import setup_logging
+from uris_ai.utils.monitoring import app_insights, setup_application_insights_logging
+
+setup_logging()
+setup_application_insights_logging()
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Page configuration – MUST be the first Streamlit call
@@ -474,6 +483,15 @@ PAGES = {
 
 def main() -> None:
     """Main Streamlit application entry point."""
+    # Track dashboard page view
+    app_insights.track_event(
+        "dashboard_page_view",
+        properties={
+            "user": st.session_state.get("username", "anonymous"),
+            "role": get_current_role() or "public",
+        },
+    )
+    
     # ------------------------------------------------------------------
     # Sidebar: branding + navigation + user info + filters
     # ------------------------------------------------------------------

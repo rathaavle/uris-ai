@@ -3,7 +3,7 @@ FastAPI main application for URIS-AI.
 
 Wires together all routers, middleware, and error handlers.
 
-Requirements: 6.1, 6.4, 8.1, 8.2, 10.1, 10.2
+Requirements: 6.1, 6.4, 8.1, 8.2, 8.4, 10.1, 10.2
 """
 
 import logging
@@ -17,6 +17,12 @@ from fastapi.responses import JSONResponse
 from uris_ai.api.middleware import RateLimitMiddleware, RequestLoggingMiddleware
 from uris_ai.api.routers import auth, recommendations, risk, users
 from uris_ai.config import settings
+from uris_ai.utils.logging_config import setup_logging
+from uris_ai.utils.monitoring import app_insights, setup_application_insights_logging
+
+# Setup logging first
+setup_logging()
+setup_application_insights_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -135,51 +141,101 @@ def create_app() -> FastAPI:
 
     @application.get("/health", tags=["System"], summary="Health check")
     async def health() -> dict[str, Any]:
-        """Basic health check — always returns 200 if the app is running."""
+        """
+        Basic health check — always returns 200 if the app is running.
+        
+        Requirements: 8.4, 9.4
+        """
         return {
             "status": "healthy",
             "version": settings.app_version,
+            "timestamp": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
         }
 
     @application.get("/health/ready", tags=["System"], summary="Readiness check")
     async def readiness() -> dict[str, Any]:
         """
         Readiness check — verifies connectivity to dependent services.
+        
+        Checks:
+        - Database connectivity
+        - Redis cache availability
+        - External API accessibility (optional)
 
         Requirements: 8.4, 9.4
         """
         checks: dict[str, str] = {}
+        all_critical_ok = True
 
-        # Database check
+        # Database check (critical)
         try:
             from uris_ai.api.dependencies import get_engine
             engine = get_engine()
             with engine.connect() as conn:
                 conn.execute(__import__("sqlalchemy").text("SELECT 1"))
             checks["database"] = "ok"
+            logger.debug("Database readiness check: OK")
         except Exception as exc:
-            logger.warning(f"Database readiness check failed: {exc}")
+            logger.error(f"Database readiness check failed: {exc}", exc_info=True)
             checks["database"] = "error"
+            all_critical_ok = False
+            app_insights.track_error()
 
-        # Redis check
+        # Redis check (non-critical, can operate without cache)
         try:
             from uris_ai.services.cache_service import CacheService
             cache = CacheService()
-            checks["cache"] = "ok" if cache.is_available else "unavailable"
+            if cache.is_available:
+                checks["cache"] = "ok"
+                logger.debug("Cache readiness check: OK")
+            else:
+                checks["cache"] = "unavailable"
+                logger.warning("Cache is not available")
         except Exception as exc:
             logger.warning(f"Cache readiness check failed: {exc}")
             checks["cache"] = "error"
 
-        all_ok = all(v in ("ok", "unavailable") for v in checks.values())
+        # Application Insights check (non-critical)
+        checks["monitoring"] = "ok" if app_insights.enabled else "disabled"
+
+        status_value = "ready" if all_critical_ok else "not_ready"
+        
+        # Track readiness status
+        app_insights.track_event(
+            "health_check_ready",
+            properties={
+                "status": status_value,
+                "database": checks["database"],
+                "cache": checks["cache"],
+            },
+        )
+
         return {
-            "status": "ready" if all_ok else "degraded",
+            "status": status_value,
             "checks": checks,
+            "timestamp": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
         }
 
     @application.get("/health/live", tags=["System"], summary="Liveness check")
     async def liveness() -> dict[str, Any]:
-        """Liveness check — confirms the process is alive."""
-        return {"status": "alive"}
+        """
+        Liveness check — confirms the process is alive and can handle requests.
+        
+        This endpoint should always return 200 if the application process is running.
+        Kubernetes/Azure uses this to determine if the pod/instance should be restarted.
+        
+        Requirements: 8.4, 9.4
+        """
+        return {
+            "status": "alive",
+            "timestamp": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
+        }
 
     return application
 
