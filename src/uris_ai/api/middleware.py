@@ -5,6 +5,7 @@ Includes:
 - Rate limiting middleware (Requirements: 8.2)
 - Request logging middleware
 - Application Insights tracking middleware (Requirements: 8.4)
+- HTTPS redirect middleware (Requirements: 10.5)
 """
 
 import logging
@@ -13,7 +14,7 @@ from collections import defaultdict
 from typing import Callable, Dict, Tuple
 
 from fastapi import Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from uris_ai.utils.monitoring import app_insights
@@ -184,3 +185,46 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             app_insights.track_error()
         
         return response
+
+
+class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware that enforces HTTPS by redirecting HTTP requests.
+    
+    In production, this ensures all communication uses TLS encryption.
+    Can be disabled for local development.
+    
+    Requirements: 10.5
+    """
+
+    def __init__(self, app, enforce_https: bool = True):
+        """
+        Initialize HTTPS redirect middleware.
+        
+        Args:
+            app: ASGI application
+            enforce_https: Whether to enforce HTTPS redirects
+        """
+        super().__init__(app)
+        self.enforce_https = enforce_https
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Redirect HTTP requests to HTTPS."""
+        if not self.enforce_https:
+            return await call_next(request)
+        
+        # Check if request is using HTTPS
+        # In production behind a load balancer, check X-Forwarded-Proto header
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+        is_https = (
+            request.url.scheme == "https" or
+            forwarded_proto.lower() == "https"
+        )
+        
+        if not is_https:
+            # Redirect to HTTPS
+            https_url = request.url.replace(scheme="https")
+            logger.info(f"Redirecting HTTP request to HTTPS: {https_url}")
+            return RedirectResponse(url=str(https_url), status_code=301)
+        
+        return await call_next(request)

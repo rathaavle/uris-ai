@@ -15,6 +15,7 @@ from uris_ai.config import settings
 from uris_ai.models.database import User
 from uris_ai.models.db_utils import create_db_engine, create_session_factory
 from uris_ai.services.auth_service import AuthService
+from uris_ai.security.input_validation import InputValidator
 
 # OAuth2 scheme for JWT token extraction
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -128,3 +129,12 @@ def require_role(*roles: str):
         return current_user
 
     return role_checker
+
+
+def get_input_validator() -> InputValidator:
+    """
+    Dependency that provides an InputValidator instance.
+    
+    Requirements: 10.4
+    """
+    return InputValidator()

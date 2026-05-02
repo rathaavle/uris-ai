@@ -1,11 +1,17 @@
 """
 Configuration management for URIS-AI application.
 Loads settings from environment variables and .env file.
+Supports Azure Key Vault integration for secrets management.
+
+Requirements: 10.5
 """
 
+import logging
 from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -16,6 +22,12 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+    )
+    
+    # Flag to enable Key Vault integration
+    use_key_vault: bool = Field(
+        default=False, 
+        description="Enable Azure Key Vault for secrets management"
     )
 
     # Azure Configuration
@@ -102,6 +114,20 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(
         default=30, description="Access token expiration in minutes"
     )
+    
+    # HTTPS/TLS Configuration
+    enforce_https: bool = Field(
+        default=True, description="Enforce HTTPS redirects"
+    )
+    ssl_cert_file: Optional[str] = Field(
+        None, description="Path to SSL certificate file"
+    )
+    ssl_key_file: Optional[str] = Field(
+        None, description="Path to SSL private key file"
+    )
+    ssl_ca_file: Optional[str] = Field(
+        None, description="Path to CA certificate file"
+    )
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(
@@ -142,3 +168,62 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+
+def load_secrets_from_key_vault(settings_instance: Settings) -> None:
+    """
+    Load secrets from Azure Key Vault and update settings.
+    
+    This function should be called during application startup if
+    use_key_vault is enabled.
+    
+    Args:
+        settings_instance: Settings instance to update
+        
+    Requirements: 10.5
+    """
+    if not settings_instance.use_key_vault:
+        logger.info("Key Vault integration disabled")
+        return
+    
+    try:
+        from uris_ai.services.key_vault_service import KeyVaultService
+        
+        kv_service = KeyVaultService(settings_instance.azure_key_vault_url)
+        
+        # Load database credentials
+        db_creds = kv_service.get_database_credentials()
+        if db_creds.get("password"):
+            settings_instance.azure_sql_password = db_creds["password"]
+        if db_creds.get("connection_string"):
+            settings_instance.azure_sql_connection_string = db_creds["connection_string"]
+        
+        # Load API keys
+        api_keys = kv_service.get_api_keys()
+        if api_keys.get("weather_api_key"):
+            settings_instance.weather_api_key = api_keys["weather_api_key"]
+        if api_keys.get("azure_ad_client_secret"):
+            settings_instance.azure_ad_client_secret = api_keys["azure_ad_client_secret"]
+        if api_keys.get("secret_key"):
+            settings_instance.secret_key = api_keys["secret_key"]
+        
+        # Load storage credentials
+        storage_creds = kv_service.get_storage_credentials()
+        if storage_creds.get("account_key"):
+            settings_instance.azure_storage_account_key = storage_creds["account_key"]
+        if storage_creds.get("connection_string"):
+            settings_instance.azure_storage_connection_string = storage_creds["connection_string"]
+        
+        # Load Redis credentials
+        redis_creds = kv_service.get_redis_credentials()
+        if redis_creds.get("password"):
+            settings_instance.redis_password = redis_creds["password"]
+        if redis_creds.get("url"):
+            settings_instance.redis_url = redis_creds["url"]
+        
+        logger.info("Successfully loaded secrets from Azure Key Vault")
+        
+    except Exception as exc:
+        logger.error(f"Failed to load secrets from Key Vault: {exc}", exc_info=True)
+        logger.warning("Falling back to environment variables for secrets")
+

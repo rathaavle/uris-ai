@@ -14,15 +14,22 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from uris_ai.api.middleware import RateLimitMiddleware, RequestLoggingMiddleware
+from uris_ai.api.middleware import (
+    RateLimitMiddleware,
+    RequestLoggingMiddleware,
+    HTTPSRedirectMiddleware,
+)
 from uris_ai.api.routers import auth, recommendations, risk, users
-from uris_ai.config import settings
+from uris_ai.config import settings, load_secrets_from_key_vault
 from uris_ai.utils.logging_config import setup_logging
 from uris_ai.utils.monitoring import app_insights, setup_application_insights_logging
 
 # Setup logging first
 setup_logging()
 setup_application_insights_logging()
+
+# Load secrets from Key Vault if enabled
+load_secrets_from_key_vault(settings)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +60,13 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------
     # Middleware (order matters — outermost is applied last)
     # ------------------------------------------------------------------
+
+    # HTTPS redirect (applied first to redirect before other processing)
+    if settings.enforce_https:
+        application.add_middleware(
+            HTTPSRedirectMiddleware,
+            enforce_https=True,
+        )
 
     # CORS — must be added before rate limiting so preflight requests pass
     application.add_middleware(
