@@ -448,6 +448,85 @@ class FloodRiskEngine:
         
         logger.info(f"Model saved to {model_path}")
 
+    def get_latest_predictions(
+        self,
+        region_ids: List[int],
+        db_session: Optional[Any] = None
+    ) -> List[FloodRiskPrediction]:
+        """
+        Get the latest stored flood risk predictions for a list of regions.
+
+        Reads the most recent flood_risk score from the risk_scores table for
+        each region and converts it to a FloodRiskPrediction object.  This is
+        used by scheduled functions that need to check current risk levels
+        without re-running the full ML inference pipeline.
+
+        Args:
+            region_ids: List of region IDs to retrieve predictions for
+            db_session: Optional SQLAlchemy session; if None, a new session is
+                        created using the default database configuration.
+
+        Returns:
+            List of FloodRiskPrediction objects (one per region that has data).
+            Regions with no stored scores are silently skipped.
+
+        Requirements: 1.1, 3.4
+        """
+        from uris_ai.models.database import RiskScore
+
+        predictions: List[FloodRiskPrediction] = []
+
+        # Allow callers to inject a session (useful for testing)
+        session = db_session
+        own_session = False
+        if session is None:
+            try:
+                from uris_ai.models.db_utils import get_db_session
+                session = get_db_session()
+                own_session = True
+            except Exception as exc:
+                logger.error("Failed to create DB session for get_latest_predictions: %s", exc)
+                return predictions
+
+        try:
+            for region_id in region_ids:
+                latest = (
+                    session.query(RiskScore)
+                    .filter(RiskScore.region_id == region_id)
+                    .order_by(RiskScore.date.desc())
+                    .first()
+                )
+                if latest is None:
+                    logger.debug("No stored risk score for region %d, skipping", region_id)
+                    continue
+
+                risk_score = float(latest.flood_risk)
+                category = self.get_risk_category(risk_score)
+
+                predictions.append(
+                    FloodRiskPrediction(
+                        region_id=region_id,
+                        risk_score=risk_score,
+                        category=category,
+                        confidence=1.0,  # Stored value — confidence is implicit
+                        timestamp=latest.date,
+                        features_used={},
+                    )
+                )
+        finally:
+            if own_session:
+                try:
+                    session.close()
+                except Exception:
+                    pass
+
+        logger.info(
+            "get_latest_predictions: retrieved %d predictions for %d regions",
+            len(predictions),
+            len(region_ids),
+        )
+        return predictions
+
     def train(
         self,
         X_train: np.ndarray,

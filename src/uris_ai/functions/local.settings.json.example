@@ -1,0 +1,60 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "FUNCTIONS_WORKER_RUNTIME_VERSION": "3.11",
+
+    "AZURE_SUBSCRIPTION_ID": "<your-azure-subscription-id>",
+    "AZURE_TENANT_ID": "<your-azure-tenant-id>",
+    "AZURE_CLIENT_ID": "<your-azure-client-id>",
+    "AZURE_CLIENT_SECRET": "<your-azure-client-secret>",
+    "AZURE_RESOURCE_GROUP": "uris-ai-rg",
+    "AZURE_LOCATION": "southeastasia",
+
+    "AZURE_SQL_SERVER": "<your-sql-server>.database.windows.net",
+    "AZURE_SQL_DATABASE": "uris-ai-db",
+    "AZURE_SQL_USERNAME": "<your-sql-username>",
+    "AZURE_SQL_PASSWORD": "<your-sql-password>",
+    "AZURE_SQL_CONNECTION_STRING": "Driver={ODBC Driver 18 for SQL Server};Server=tcp:<your-sql-server>.database.windows.net,1433;Database=uris-ai-db;Uid=<your-sql-username>;Pwd=<your-sql-password>;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;",
+
+    "AZURE_STORAGE_ACCOUNT_NAME": "<your-storage-account>",
+    "AZURE_STORAGE_ACCOUNT_KEY": "<your-storage-account-key>",
+    "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=<your-storage-account>;AccountKey=<your-storage-account-key>;EndpointSuffix=core.windows.net",
+    "AZURE_STORAGE_CONTAINER_RAW_DATA": "raw-data",
+    "AZURE_STORAGE_CONTAINER_PROCESSED_DATA": "processed-data",
+
+    "AZURE_KEY_VAULT_NAME": "<your-key-vault-name>",
+    "AZURE_KEY_VAULT_URL": "https://<your-key-vault-name>.vault.azure.net/",
+
+    "REDIS_HOST": "<your-redis-host>.redis.cache.windows.net",
+    "REDIS_PORT": "6380",
+    "REDIS_PASSWORD": "<your-redis-password>",
+    "REDIS_URL": "rediss://:<your-redis-password>@<your-redis-host>.redis.cache.windows.net:6380",
+
+    "AZURE_ML_WORKSPACE_NAME": "uris-ai-ml",
+    "AZURE_ML_RESOURCE_GROUP": "uris-ai-rg",
+    "AZURE_ML_SUBSCRIPTION_ID": "<your-azure-subscription-id>",
+
+    "AZURE_AD_TENANT_ID": "<your-azure-tenant-id>",
+    "AZURE_AD_CLIENT_ID": "<your-azure-client-id>",
+    "AZURE_AD_CLIENT_SECRET": "<your-azure-client-secret>",
+    "AZURE_AD_AUTHORITY": "https://login.microsoftonline.com/<your-azure-tenant-id>",
+
+    "WEATHER_API_URL": "https://api.bmkg.go.id/publik/prakiraan-cuaca",
+    "WEATHER_API_KEY": "<your-weather-api-key>",
+    "OSM_API_URL": "https://overpass-api.de/api/interpreter",
+
+    "SECRET_KEY": "<your-jwt-secret-key>",
+
+    "WEATHER_REGION_IDS": "1,2,3,4,5,6,7,8,9,10",
+
+    "APPINSIGHTS_INSTRUMENTATIONKEY": "<your-appinsights-key>",
+    "APPINSIGHTS_CONNECTION_STRING": "InstrumentationKey=<your-appinsights-key>;IngestionEndpoint=https://southeastasia-0.in.applicationinsights.azure.com/"
+  },
+  "Host": {
+    "LocalHttpPort": 7071,
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}
