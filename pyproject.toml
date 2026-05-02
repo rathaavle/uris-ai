@@ -29,6 +29,7 @@ python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 python-multipart = "^0.0.6"
 folium = "^0.15.1"
+streamlit-folium = "^0.15.0"
 plotly = "^5.18.0"
 
 [tool.poetry.group.dev.dependencies]
