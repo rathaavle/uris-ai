@@ -207,3 +207,23 @@ The system uses Azure Application Insights for monitoring:
 - TLS 1.2+ for all communication
 - Azure Key Vault for secrets management
 - Input validation and sanitization
+
+## Documentation
+
+- [Architecture Overview](docs/architecture.md)
+- [API Documentation](docs/api.md)
+- [User Guide](docs/user-guide.md)
+- [Developer Guide](docs/developer-guide.md)
+- [Deployment Guide](docs/deployment.md)
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, please contact the URIS-AI team or open an issue in the repository.
