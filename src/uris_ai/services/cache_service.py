@@ -231,3 +231,239 @@ class CacheService:
         self.delete_pattern(f"risk:trend:{region_id}:*")
         self.delete("risk:all_regions")
         logger.debug(f"Cache invalidated for region {region_id}")
+
+    # ------------------------------------------------------------------
+    # Cache warming strategies
+    # ------------------------------------------------------------------
+
+    def warm_risk_scores_cache(self, db_session) -> dict:
+        """
+        Warm cache with all region risk scores.
+        
+        This preloads frequently accessed risk score data into cache
+        to improve response times for initial requests.
+        
+        Requirements: 8.1
+        
+        Args:
+            db_session: SQLAlchemy database session
+            
+        Returns:
+            Dictionary with warming results
+        """
+        from uris_ai.models.database import Region, RiskScore
+        from uris_ai.ml.flood_risk_engine import FloodRiskEngine
+        
+        results = {
+            "success": True,
+            "regions_warmed": 0,
+            "errors": []
+        }
+        
+        try:
+            # Get all regions
+            regions = db_session.query(Region).all()
+            flood_engine = FloodRiskEngine()
+            
+            all_risk_scores = []
+            
+            for region in regions:
+                try:
+                    # Get latest risk score for each region
+                    latest = (
+                        db_session.query(RiskScore)
+                        .filter(RiskScore.region_id == region.region_id)
+                        .order_by(RiskScore.date.desc())
+                        .first()
+                    )
+                    
+                    if latest:
+                        risk_data = {
+                            "region_id": latest.region_id,
+                            "region_name": region.name,
+                            "flood_risk": latest.flood_risk,
+                            "traffic_impact": latest.traffic_impact,
+                            "service_access": latest.service_access,
+                            "urban_risk_score": latest.urban_risk_score,
+                            "risk_category": flood_engine.get_risk_category(
+                                latest.urban_risk_score
+                            ).value,
+                            "calculated_at": latest.date.isoformat(),
+                        }
+                        
+                        # Cache individual region risk score
+                        self.set_risk_score(region.region_id, risk_data)
+                        all_risk_scores.append(risk_data)
+                        results["regions_warmed"] += 1
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to warm cache for region {region.region_id}: {e}")
+                    results["errors"].append({
+                        "region_id": region.region_id,
+                        "error": str(e)
+                    })
+            
+            # Cache all regions risk scores
+            if all_risk_scores:
+                from datetime import datetime, timezone
+                all_data = {
+                    "regions": all_risk_scores,
+                    "total": len(all_risk_scores),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                self.set_all_risk_scores(all_data)
+            
+            logger.info(f"Cache warming completed: {results['regions_warmed']} regions")
+            
+        except Exception as e:
+            logger.error(f"Cache warming failed: {e}")
+            results["success"] = False
+            results["errors"].append({"general": str(e)})
+        
+        return results
+
+    def warm_recommendations_cache(self, db_session) -> dict:
+        """
+        Warm cache with active recommendations for all regions.
+        
+        Requirements: 8.1
+        
+        Args:
+            db_session: SQLAlchemy database session
+            
+        Returns:
+            Dictionary with warming results
+        """
+        from uris_ai.models.database import Region, Recommendation
+        
+        results = {
+            "success": True,
+            "regions_warmed": 0,
+            "errors": []
+        }
+        
+        try:
+            # Get all regions with active recommendations
+            regions = db_session.query(Region).all()
+            
+            for region in regions:
+                try:
+                    # Get active recommendations for region
+                    recommendations = (
+                        db_session.query(Recommendation)
+                        .filter(
+                            Recommendation.region_id == region.region_id,
+                            Recommendation.is_active == True
+                        )
+                        .order_by(Recommendation.created_at.desc())
+                        .limit(10)
+                        .all()
+                    )
+                    
+                    if recommendations:
+                        rec_data = [
+                            {
+                                "id": rec.id,
+                                "region_id": rec.region_id,
+                                "recommendation_type": rec.recommendation_type,
+                                "description": rec.description,
+                                "urgency_level": rec.urgency_level,
+                                "created_at": rec.created_at.isoformat(),
+                                "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+                                "is_active": rec.is_active
+                            }
+                            for rec in recommendations
+                        ]
+                        
+                        # Cache recommendations
+                        self.set_recommendations(region.region_id, rec_data)
+                        results["regions_warmed"] += 1
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to warm recommendations cache for region {region.region_id}: {e}")
+                    results["errors"].append({
+                        "region_id": region.region_id,
+                        "error": str(e)
+                    })
+            
+            logger.info(f"Recommendations cache warming completed: {results['regions_warmed']} regions")
+            
+        except Exception as e:
+            logger.error(f"Recommendations cache warming failed: {e}")
+            results["success"] = False
+            results["errors"].append({"general": str(e)})
+        
+        return results
+
+    def warm_all_caches(self, db_session) -> dict:
+        """
+        Warm all caches with frequently accessed data.
+        
+        This should be called on application startup or after
+        cache invalidation to ensure optimal performance.
+        
+        Requirements: 8.1
+        
+        Args:
+            db_session: SQLAlchemy database session
+            
+        Returns:
+            Dictionary with combined warming results
+        """
+        logger.info("Starting cache warming for all data...")
+        
+        risk_results = self.warm_risk_scores_cache(db_session)
+        rec_results = self.warm_recommendations_cache(db_session)
+        
+        combined_results = {
+            "success": risk_results["success"] and rec_results["success"],
+            "risk_scores": risk_results,
+            "recommendations": rec_results,
+            "total_regions_warmed": risk_results["regions_warmed"] + rec_results["regions_warmed"]
+        }
+        
+        logger.info(f"Cache warming completed: {combined_results['total_regions_warmed']} total operations")
+        
+        return combined_results
+
+    def get_cache_stats(self) -> dict:
+        """
+        Get cache statistics and health information.
+        
+        Returns:
+            Dictionary with cache statistics
+        """
+        if self._client is None:
+            return {
+                "available": False,
+                "error": "Redis client not connected"
+            }
+        
+        try:
+            info = self._client.info()
+            
+            return {
+                "available": True,
+                "connected_clients": info.get("connected_clients", 0),
+                "used_memory": info.get("used_memory_human", "N/A"),
+                "total_keys": self._client.dbsize(),
+                "hit_rate": self._calculate_hit_rate(info),
+                "uptime_seconds": info.get("uptime_in_seconds", 0)
+            }
+        except Exception as e:
+            logger.error(f"Failed to get cache stats: {e}")
+            return {
+                "available": False,
+                "error": str(e)
+            }
+
+    def _calculate_hit_rate(self, info: dict) -> float:
+        """Calculate cache hit rate from Redis info."""
+        hits = info.get("keyspace_hits", 0)
+        misses = info.get("keyspace_misses", 0)
+        total = hits + misses
+        
+        if total == 0:
+            return 0.0
+        
+        return round((hits / total) * 100, 2)

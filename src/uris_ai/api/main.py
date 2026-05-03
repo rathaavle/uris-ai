@@ -33,6 +33,9 @@ load_secrets_from_key_vault(settings)
 
 logger = logging.getLogger(__name__)
 
+# Flag to track if startup tasks have been completed
+_startup_completed = False
+
 # ---------------------------------------------------------------------------
 # Application factory
 # ---------------------------------------------------------------------------
@@ -139,6 +142,73 @@ def create_app() -> FastAPI:
     application.include_router(users.router)
     application.include_router(risk.router)
     application.include_router(recommendations.router)
+
+    # ------------------------------------------------------------------
+    # Startup and shutdown events
+    # ------------------------------------------------------------------
+
+    @application.on_event("startup")
+    async def startup_event() -> None:
+        """
+        Execute startup tasks when the application starts.
+        
+        Initializes performance optimizations including:
+        - Creating database indexes
+        - Warming cache with frequently accessed data
+        
+        Requirements: 8.1
+        """
+        global _startup_completed
+        
+        if _startup_completed:
+            logger.info("Startup tasks already completed, skipping")
+            return
+        
+        logger.info("Executing application startup tasks...")
+        
+        try:
+            from uris_ai.api.dependencies import get_db
+            from uris_ai.startup import startup_event_handler
+            
+            # Get database session
+            db = next(get_db())
+            
+            # Run startup tasks
+            startup_event_handler(db)
+            
+            _startup_completed = True
+            logger.info("Application startup tasks completed successfully")
+            
+            # Track startup event
+            app_insights.track_event(
+                "application_startup",
+                properties={
+                    "status": "success",
+                    "version": settings.app_version
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Startup tasks failed: {e}", exc_info=True)
+            app_insights.track_error()
+            # Don't raise - allow application to start even if optimization fails
+
+    @application.on_event("shutdown")
+    async def shutdown_event() -> None:
+        """
+        Execute cleanup tasks when the application shuts down.
+        """
+        logger.info("Application shutdown initiated")
+        
+        # Track shutdown event
+        app_insights.track_event(
+            "application_shutdown",
+            properties={"version": settings.app_version}
+        )
+        
+        # Flush Application Insights telemetry
+        if app_insights.enabled:
+            app_insights.flush()
 
     # ------------------------------------------------------------------
     # Root and health endpoints
@@ -250,6 +320,43 @@ def create_app() -> FastAPI:
                 __import__("datetime").timezone.utc
             ).isoformat(),
         }
+
+    @application.get("/health/performance", tags=["System"], summary="Performance optimization status")
+    async def performance_status() -> dict[str, Any]:
+        """
+        Check the status of performance optimizations.
+        
+        Returns information about:
+        - Database indexes
+        - Cache availability and statistics
+        - Startup completion status
+        
+        Requirements: 8.1
+        """
+        try:
+            from uris_ai.api.dependencies import get_db
+            from uris_ai.startup import get_startup_status
+            
+            db = next(get_db())
+            status = get_startup_status(db)
+            status["startup_completed"] = _startup_completed
+            
+            return {
+                "status": "ok",
+                "optimizations": status,
+                "timestamp": __import__("datetime").datetime.now(
+                    __import__("datetime").timezone.utc
+                ).isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"Failed to get performance status: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "error": str(e),
+                "timestamp": __import__("datetime").datetime.now(
+                    __import__("datetime").timezone.utc
+                ).isoformat(),
+            }
 
     return application
 
