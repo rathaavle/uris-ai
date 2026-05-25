@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        swagger_ui_parameters={"persistAuthorization": True},
     )
 
     # ------------------------------------------------------------------
@@ -101,11 +102,16 @@ def create_app() -> FastAPI:
     ) -> JSONResponse:
         """Return a structured 422 response for request validation errors."""
         logger.warning(f"Validation error on {request.url.path}: {exc.errors()}")
+        # Sanitize errors — pastikan semua nilai bisa di-serialize ke JSON
+        errors = []
+        for err in exc.errors():
+            sanitized = {k: str(v) if isinstance(v, bytes) else v for k, v in err.items()}
+            errors.append(sanitized)
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "detail": "Data permintaan tidak valid",
-                "errors": exc.errors(),
+                "errors": errors,
             },
         )
 

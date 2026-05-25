@@ -13,14 +13,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from uris_ai.api.dependencies import get_current_active_user, get_db
+from uris_ai.api.dependencies import get_db
 from uris_ai.api.schemas import (
     AllRegionsRiskResponse,
     RiskScoreResponse,
     RiskTrendPoint,
     RiskTrendResponse,
 )
-from uris_ai.models.database import Region, RiskScore, User
+from uris_ai.models.database import Region, RiskScore
 from uris_ai.ml.flood_risk_engine import FloodRiskEngine
 from uris_ai.ml.risk_scoring_engine import RiskScoringEngine
 from uris_ai.services.cache_service import CacheService
@@ -61,7 +61,6 @@ def _row_to_risk_response(score_row: RiskScore, region_name: Optional[str]) -> R
 async def get_region_risk(
     region_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
     cache: CacheService = Depends(lambda: CacheService()),
 ) -> RiskScoreResponse:
     """
@@ -113,7 +112,6 @@ async def get_region_risk(
 )
 async def get_all_regions_risk(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
     cache: CacheService = Depends(lambda: CacheService()),
 ) -> AllRegionsRiskResponse:
     """
@@ -131,17 +129,26 @@ async def get_all_regions_risk(
     regions = db.query(Region).all()
     region_map = {r.region_id: r.name for r in regions}
 
-    # For each region, get the latest risk score
-    results: List[RiskScoreResponse] = []
-    for region in regions:
-        latest = (
-            db.query(RiskScore)
-            .filter(RiskScore.region_id == region.region_id)
-            .order_by(RiskScore.date.desc())
-            .first()
+    # Ambil semua risk score terbaru dalam SATU query pakai subquery
+    from sqlalchemy import func
+    subq = (
+        db.query(
+            RiskScore.region_id,
+            func.max(RiskScore.date).label("max_date")
         )
-        if latest is not None:
-            results.append(_row_to_risk_response(latest, region_map.get(region.region_id)))
+        .group_by(RiskScore.region_id)
+        .subquery()
+    )
+    latest_scores = (
+        db.query(RiskScore)
+        .join(subq, (RiskScore.region_id == subq.c.region_id) & (RiskScore.date == subq.c.max_date))
+        .all()
+    )
+
+    results: List[RiskScoreResponse] = [
+        _row_to_risk_response(score, region_map.get(score.region_id))
+        for score in latest_scores
+    ]
 
     response = AllRegionsRiskResponse(
         regions=results,
@@ -165,7 +172,6 @@ async def get_region_risk_trend(
     region_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Rentang waktu dalam jam (1-168)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
     cache: CacheService = Depends(lambda: CacheService()),
 ) -> RiskTrendResponse:
     """

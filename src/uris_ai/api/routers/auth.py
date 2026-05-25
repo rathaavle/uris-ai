@@ -9,12 +9,14 @@ Requirements: 10.1, 10.2
 
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from uris_ai.api.dependencies import get_auth_service, get_current_active_user, get_db
-from uris_ai.api.schemas import LoginRequest, LogoutResponse, TokenResponse
+from uris_ai.api.schemas import LogoutResponse, TokenResponse
 from uris_ai.models.database import User
 from uris_ai.services.auth_service import AuthService
 
@@ -30,26 +32,22 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     description="Autentikasi pengguna dan kembalikan JWT access token.",
 )
 async def login(
-    request: LoginRequest,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Authenticate a user and return a JWT access token.
-
-    - Verifies username and password against the database
-    - Returns a signed JWT token with the user's role embedded
-    - Updates last_login timestamp
-
+    Supports OAuth2 form-data (untuk Swagger UI Authorize button).
     Requirements: 10.2
     """
-    # Look up user by username
-    user = db.query(User).filter(User.username == request.username).first()
+    username = form_data.username
+    password = form_data.password
 
-    if user is None or not auth_service.verify_password(
-        request.password, user.password_hash
-    ):
-        logger.warning(f"Failed login attempt for username '{request.username}'")
+    user = db.query(User).filter(User.username == username).first()
+
+    if user is None or not auth_service.verify_password(password, user.password_hash):
+        logger.warning(f"Failed login attempt for username '{username}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Username atau password salah",
@@ -62,13 +60,11 @@ async def login(
             detail="Akun pengguna tidak aktif",
         )
 
-    # Create access token
     token = auth_service.create_access_token(
         subject=user.username,
         role=user.role,
     )
 
-    # Update last login timestamp
     user.last_login = datetime.now(timezone.utc)
     db.commit()
 

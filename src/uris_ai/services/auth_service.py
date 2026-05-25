@@ -112,6 +112,9 @@ class AuthService:
         }
 
         token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        # python-jose kadang return bytes, pastikan selalu str
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
         logger.debug(f"Access token created for subject '{subject}', role='{role}'")
         return token
 

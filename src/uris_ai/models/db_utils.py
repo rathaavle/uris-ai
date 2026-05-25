@@ -5,6 +5,7 @@ Provides functions for database connection, session management,
 and schema initialization.
 """
 
+import urllib.parse
 from typing import Generator
 
 from sqlalchemy import create_engine
@@ -16,7 +17,11 @@ from .database import Base
 
 def create_db_engine(connection_string: str, echo: bool = False) -> Engine:
     """
-    Create a SQLAlchemy engine for database connection.
+    Create a SQLAlchemy engine for Azure SQL Database.
+
+    Accepts either:
+    - ODBC connection string (Driver={...};Server=...;...)
+    - SQLAlchemy URL (mssql+pyodbc://...)
 
     Args:
         connection_string: Database connection string
@@ -25,7 +30,14 @@ def create_db_engine(connection_string: str, echo: bool = False) -> Engine:
     Returns:
         SQLAlchemy Engine instance
     """
-    engine = create_engine(connection_string, echo=echo, pool_pre_ping=True)
+    # Jika sudah format SQLAlchemy URL, pakai langsung
+    if connection_string.startswith("mssql") or connection_string.startswith("sqlite"):
+        engine = create_engine(connection_string, echo=echo, pool_pre_ping=True)
+    else:
+        # Convert ODBC string ke SQLAlchemy URL
+        params = urllib.parse.quote_plus(connection_string)
+        url = f"mssql+pyodbc:///?odbc_connect={params}"
+        engine = create_engine(url, echo=echo, pool_pre_ping=True)
     return engine
 
 

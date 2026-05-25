@@ -12,7 +12,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from uris_ai.api.dependencies import get_current_active_user, get_db
+from uris_ai.api.dependencies import get_db
 from uris_ai.api.schemas import (
     CoordinateInput,
     RecommendationResponse,
@@ -20,7 +20,7 @@ from uris_ai.api.schemas import (
     SafeRouteRequest,
     SafeRouteResponse,
 )
-from uris_ai.models.database import Recommendation, Region, RiskScore, User
+from uris_ai.models.database import Recommendation, Region, RiskScore
 from uris_ai.ml.recommendation_engine import Coordinate, RecommendationEngine
 from uris_ai.services.cache_service import CacheService
 
@@ -65,7 +65,6 @@ def _build_risk_map(db: Session) -> dict:
 async def get_region_recommendations(
     region_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
     cache: CacheService = Depends(lambda: CacheService()),
 ) -> RegionRecommendationsResponse:
     """
@@ -136,7 +135,6 @@ async def get_region_recommendations(
 async def find_safe_route(
     request: SafeRouteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ) -> SafeRouteResponse:
     """
     Find a safe route from origin to destination avoiding high-risk regions.

@@ -8,7 +8,7 @@ and service instances.
 from typing import Generator, Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from uris_ai.config import settings
@@ -17,8 +17,8 @@ from uris_ai.models.db_utils import create_db_engine, create_session_factory
 from uris_ai.services.auth_service import AuthService
 from uris_ai.security.input_validation import InputValidator
 
-# OAuth2 scheme for JWT token extraction
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+# HTTPBearer scheme — Swagger akan tampilkan input "Value" untuk paste token langsung
+oauth2_scheme = HTTPBearer(auto_error=False)
 
 # Database engine and session factory (initialized lazily)
 _engine = None
@@ -69,13 +69,12 @@ def get_auth_service() -> AuthService:
 
 
 async def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> User:
     """
     Dependency that extracts and validates the current authenticated user.
-
     Raises HTTP 401 if the token is missing or invalid.
     """
     credentials_exception = HTTPException(
@@ -84,9 +83,10 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    if token is None:
+    if credentials is None:
         raise credentials_exception
 
+    token = credentials.credentials
     username = auth_service.decode_token(token)
     if username is None:
         raise credentials_exception
