@@ -737,7 +737,7 @@ class TestUserModel:
 
     def test_user_roles(self, db_session: Session) -> None:
         """Test creating users with different roles."""
-        roles = ["public", "facility_manager", "government"]
+        roles = ["public", "government"]
         for idx, role in enumerate(roles):
             user = User(
                 username=f"user{idx}",

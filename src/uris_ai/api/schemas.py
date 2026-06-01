@@ -67,6 +67,8 @@ class RiskScoreResponse(BaseModel):
 
     region_id: int = Field(..., description="ID wilayah")
     region_name: Optional[str] = Field(None, description="Nama wilayah")
+    latitude: Optional[float] = Field(None, description="Latitude wilayah")
+    longitude: Optional[float] = Field(None, description="Longitude wilayah")
     flood_risk: float = Field(..., ge=0, le=100, description="Skor risiko banjir (0-100)")
     traffic_impact: float = Field(
         ..., ge=0, le=100, description="Skor dampak lalu lintas (0-100)"

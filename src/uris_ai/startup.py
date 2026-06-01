@@ -12,7 +12,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from uris_ai.database.db_utils import create_performance_indexes
+from uris_ai.database.optimization import create_performance_indexes
 from uris_ai.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
@@ -156,7 +156,7 @@ def get_startup_status(db_session: Session) -> dict:
     Returns:
         Dictionary with optimization status
     """
-    from uris_ai.database.db_utils import get_index_usage_stats
+    from uris_ai.database.optimization import get_index_usage_stats
     
     status = {
         "indexes": {

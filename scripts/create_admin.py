@@ -17,9 +17,8 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 users_to_create = [
-    {"username": "admin",      "email": "admin@urisai.com",      "password": "Admin123!", "role": "government"},
-    {"username": "responder",  "email": "responder@urisai.com",  "password": "Admin123!", "role": "emergency_responder"},
-    {"username": "public",     "email": "public@urisai.com",     "password": "Admin123!", "role": "public"},
+    {"username": "admin",  "email": "admin@urisai.com",  "password": "Admin123!", "role": "government"},
+    {"username": "public", "email": "public@urisai.com", "password": "Admin123!", "role": "public"},
 ]
 
 for u in users_to_create:
@@ -40,4 +39,4 @@ for u in users_to_create:
 session.commit()
 session.close()
 print("\nSemua user siap. Password: Admin123!")
-print("Roles: government | emergency_responder | public")
+print("Roles: government | public")

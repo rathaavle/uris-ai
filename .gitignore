@@ -1,6 +1,9 @@
 #Kiro
 .kiro
 
+#Reference
+reference/*
+
 # Python
 __pycache__/
 *.py[cod]

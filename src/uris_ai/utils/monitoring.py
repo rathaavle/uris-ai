@@ -2,7 +2,7 @@
 Azure Application Insights monitoring integration for URIS-AI.
 
 Provides centralized monitoring, custom metrics, and event tracking
-for both FastAPI and Streamlit applications.
+for FastAPI applications.
 
 Requirements: 8.4
 """

@@ -24,6 +24,7 @@ from uris_ai.models.database import Region, RiskScore
 from uris_ai.ml.flood_risk_engine import FloodRiskEngine
 from uris_ai.ml.risk_scoring_engine import RiskScoringEngine
 from uris_ai.services.cache_service import CacheService
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +39,16 @@ def _get_risk_category(score: float) -> str:
     return _flood_risk_engine.get_risk_category(score).value
 
 
-def _row_to_risk_response(score_row: RiskScore, region_name: Optional[str]) -> RiskScoreResponse:
+def _row_to_risk_response(score_row: RiskScore, region: Any) -> RiskScoreResponse:
     """Convert a RiskScore ORM row to a RiskScoreResponse schema."""
+    region_name = region.name if hasattr(region, 'name') else region
+    lat = region.latitude if hasattr(region, 'latitude') else None
+    lon = region.longitude if hasattr(region, 'longitude') else None
     return RiskScoreResponse(
         region_id=score_row.region_id,
         region_name=region_name,
+        latitude=lat,
+        longitude=lon,
         flood_risk=score_row.flood_risk,
         traffic_impact=score_row.traffic_impact,
         service_access=score_row.service_access,
@@ -96,7 +102,7 @@ async def get_region_risk(
             detail=f"Belum ada data risiko untuk wilayah {region_id}",
         )
 
-    response = _row_to_risk_response(latest, region.name)
+    response = _row_to_risk_response(latest, region)
 
     # Store in cache
     cache.set_risk_score(region_id, response.model_dump(mode="json"))
@@ -127,7 +133,7 @@ async def get_all_regions_risk(
 
     # Get all regions
     regions = db.query(Region).all()
-    region_map = {r.region_id: r.name for r in regions}
+    region_map = {r.region_id: r for r in regions}  # map ke object, bukan hanya nama
 
     # Ambil semua risk score terbaru dalam SATU query pakai subquery
     from sqlalchemy import func
@@ -148,6 +154,7 @@ async def get_all_regions_risk(
     results: List[RiskScoreResponse] = [
         _row_to_risk_response(score, region_map.get(score.region_id))
         for score in latest_scores
+        if region_map.get(score.region_id) is not None
     ]
 
     response = AllRegionsRiskResponse(

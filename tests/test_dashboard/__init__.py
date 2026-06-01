@@ -1,1 +1,1 @@
-"""Tests for URIS-AI Streamlit dashboard."""
+"""Tests for URIS-AI dashboard."""

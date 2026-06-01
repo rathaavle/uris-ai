@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     osm_api_url: str = Field(
         default="https://overpass-api.de/api/interpreter", description="OSM API URL"
     )
+    azure_maps_key: Optional[str] = Field(None, description="Azure Maps subscription key")
+    azure_maps_tileset: str = Field(
+        default="microsoft.base.road", description="Azure Maps tileset ID"
+    )
 
     # Application Configuration
     app_name: str = Field(default="URIS-AI", description="Application name")

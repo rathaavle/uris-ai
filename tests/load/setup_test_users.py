@@ -51,12 +51,6 @@ def create_test_users(db: Session, auth_service: AuthService):
             "email": "test3@example.com",
         },
         {
-            "username": "test_facility_manager",
-            "password": "test_password_facility",
-            "role": "facility_manager",
-            "email": "facility@example.com",
-        },
-        {
             "username": "test_government",
             "password": "test_password_gov",
             "role": "government",
