@@ -16,27 +16,31 @@ export default function Header() {
 
   return (
     <header
-      className="flex items-center justify-between px-5 h-[52px] flex-shrink-0
+      className="flex items-center justify-between px-5 h-[64px] flex-shrink-0
                        bg-gradient-to-r from-b1 to-b2 border-b border-bd z-50"
     >
       {/* Left */}
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center font-extrabold
-                        text-white text-sm shadow-lg flex-shrink-0
-                        bg-gradient-to-br from-accent to-[#0096c7]"
-        >
-          🌊
+      <div className="flex items-center gap-4">
+        {/* Logo — lebih besar */}
+        <div className="h-12 w-auto flex-shrink-0 flex items-center">
+          <img
+            src="/logowhite.jpg"
+            alt="URIS-AI"
+            className="h-12 w-auto max-w-[160px] object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
         </div>
+        {/* Divider */}
+        <div className="w-px h-8 bg-bd flex-shrink-0" />
+        {/* Title */}
         <div>
-          <h1
-            className="text-sm font-bold bg-gradient-to-r from-t1 to-accent
-                         bg-clip-text text-transparent leading-tight"
-          >
-            URIS-AI
-          </h1>
           <p className="text-[10px] text-t3 leading-tight">
-            Urban Risk Intelligence System · Jakarta &amp; Jawa Barat
+            Urban Risk Intelligence System
+          </p>
+          <p className="text-[9px] text-t3/60 leading-tight">
+            Jakarta &amp; Jawa Barat · Flood-Aware Mobility
           </p>
         </div>
       </div>
