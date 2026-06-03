@@ -11,13 +11,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Ikon per tipe rekomendasi
+// Ikon per tipe rekomendasi — pakai gambar custom
 const TYPE_ICON = {
-  alert: { icon: "⚠️", label: "Peringatan" },
-  route: { icon: "🗺️", label: "Rute" },
-  service: { icon: "🏥", label: "Fasilitas" },
-  evacuation: { icon: "🚨", label: "Evakuasi" },
-  resource_allocation: { icon: "📋", label: "Sumber Daya" },
+  alert: { img: "/allert.png", label: "Peringatan" },
+  route: { img: "/rute.png", label: "Rute" },
+  service: { img: "/fasilitas.png", label: "Fasilitas" },
+  evacuation: { img: "/allert.png", label: "Evakuasi" },
+  resource_allocation: { img: "/fasilitas.png", label: "Sumber Daya" },
 };
 
 function UrgencyBadge({ urgency }) {
@@ -39,7 +39,7 @@ function UrgencyBadge({ urgency }) {
 
 function RecCard({ rec }) {
   const typeInfo = TYPE_ICON[rec.type] || {
-    icon: "📌",
+    img: "/allert.png",
     label: rec.type || "Info",
   };
   return (
@@ -56,7 +56,14 @@ function RecCard({ rec }) {
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-base flex-shrink-0">{typeInfo.icon}</span>
+          <img
+            src={typeInfo.img}
+            alt={typeInfo.label}
+            className="w-5 h-5 object-contain flex-shrink-0"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
           <span className="text-[10px] font-semibold text-t2 flex-shrink-0">
             {typeInfo.label}
           </span>

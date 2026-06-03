@@ -216,8 +216,10 @@ class RiskScoringEngine:
         if hours < 0:
             raise ValueError(f"hours must be non-negative, got {hours}")
         
-        # Calculate cutoff time
+        # Calculate cutoff time — gunakan naive datetime untuk kompatibilitas MySQL
         cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        # Juga coba dengan offset kecil untuk pastikan data terbaru masuk
+        cutoff_time = cutoff_time - timedelta(minutes=5)
         
         # Query risk scores within the time window
         risk_scores = (
