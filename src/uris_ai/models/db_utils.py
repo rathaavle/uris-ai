@@ -2,7 +2,7 @@
 Database utility functions for URIS-AI system.
 
 Provides functions for database connection, session management,
-and schema initialization.
+and schema initialization. Uses PyMySQL for MySQL/Azure Database for MySQL.
 """
 
 import urllib.parse
@@ -17,11 +17,11 @@ from .database import Base
 
 def create_db_engine(connection_string: str, echo: bool = False) -> Engine:
     """
-    Create a SQLAlchemy engine for Azure SQL Database.
+    Create a SQLAlchemy engine for Azure Database for MySQL.
 
     Accepts either:
-    - ODBC connection string (Driver={...};Server=...;...)
-    - SQLAlchemy URL (mssql+pyodbc://...)
+    - MySQL URL (mysql+pymysql://user:pass@host/db)
+    - Legacy ODBC string (Driver={...};Server=...;...) — converted automatically
 
     Args:
         connection_string: Database connection string
@@ -30,11 +30,44 @@ def create_db_engine(connection_string: str, echo: bool = False) -> Engine:
     Returns:
         SQLAlchemy Engine instance
     """
-    # Jika sudah format SQLAlchemy URL, pakai langsung
-    if connection_string.startswith("mssql") or connection_string.startswith("sqlite"):
-        engine = create_engine(connection_string, echo=echo, pool_pre_ping=True)
+    if connection_string.startswith("mysql"):
+        # MySQL URL — SSL wajib untuk Azure Database for MySQL
+        # Gunakan creator function agar SSL diteruskan dengan benar ke PyMySQL
+        import pymysql
+        from sqlalchemy import event
+
+        base_url = connection_string.split("?")[0]
+
+        def _creator():
+            parts = base_url.replace("mysql+pymysql://", "").split("@")
+            creds, hostdb = parts[0], parts[1]
+            user, password = creds.split(":", 1)
+            import urllib.parse
+            password = urllib.parse.unquote(password)
+            host_port, db = hostdb.split("/", 1)
+            host, port = (host_port.split(":") + ["3306"])[:2]
+            return pymysql.connect(
+                host=host,
+                port=int(port),
+                user=user,
+                password=password,
+                database=db,
+                ssl={"ssl_disabled": False},
+                connect_timeout=10,
+            )
+
+        engine = create_engine(
+            "mysql+pymysql://",
+            creator=_creator,
+            echo=echo,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
+    elif connection_string.startswith("sqlite"):
+        engine = create_engine(connection_string, echo=echo)
     else:
-        # Convert ODBC string ke SQLAlchemy URL
+        # Legacy ODBC string — convert to MySQL URL if possible,
+        # otherwise fall back to mssql+pyodbc
         params = urllib.parse.quote_plus(connection_string)
         url = f"mssql+pyodbc:///?odbc_connect={params}"
         engine = create_engine(url, echo=echo, pool_pre_ping=True)

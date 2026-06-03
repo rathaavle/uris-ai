@@ -112,11 +112,12 @@ def create_performance_indexes(db_session: Session) -> Dict[str, Any]:
     
     for idx in indexes:
         try:
-            # Check if index already exists
+            # MySQL: cek index via SHOW INDEX
             check_query = text(f"""
                 SELECT COUNT(*) as cnt
-                FROM sys.indexes
-                WHERE name = :index_name
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                AND index_name = :index_name
             """)
             result = db_session.execute(check_query, {"index_name": idx["name"]}).fetchone()
             

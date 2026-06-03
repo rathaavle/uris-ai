@@ -1,6 +1,5 @@
 """Generate rekomendasi otomatis berdasarkan risk score tiap wilayah."""
 import sys
-import urllib.parse
 from datetime import datetime, timezone, timedelta
 sys.path.insert(0, 'src')
 
@@ -9,8 +8,9 @@ from sqlalchemy.orm import sessionmaker
 from uris_ai.config import settings
 from uris_ai.models.database import Region, RiskScore, Recommendation
 
-params = urllib.parse.quote_plus(settings.azure_sql_connection_string)
-engine = create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
+from uris_ai.models.db_utils import create_db_engine
+
+engine = create_db_engine(settings.azure_mysql_connection_string)
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -85,3 +85,4 @@ for cat in ["KRITIS", "TINGGI", "SEDANG", "RENDAH"]:
     if matching:
         names = [regions.get(s.region_id, "?") for s in matching[:3]]
         print(f"  {cat} ({len(matching)} wilayah): {', '.join(names)}")
+

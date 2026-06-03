@@ -1,18 +1,20 @@
 """
 FastAPI main application for URIS-AI.
 
-Wires together all routers, middleware, and error handlers.
+Wires together all routers, middleware, error handlers, and static files.
 
 Requirements: 6.1, 6.4, 8.1, 8.2, 8.4, 10.1, 10.2
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from uris_ai.api.middleware import (
     RateLimitMiddleware,
@@ -27,6 +29,9 @@ from uris_ai.utils.monitoring import app_insights, setup_application_insights_lo
 # Setup logging first
 setup_logging()
 setup_application_insights_logging()
+
+# Path ke static files
+STATIC_DIR = Path(__file__).parent.parent / "static"
 
 # Load secrets from Key Vault if enabled
 load_secrets_from_key_vault(settings)
@@ -148,6 +153,108 @@ def create_app() -> FastAPI:
     application.include_router(users.router)
     application.include_router(risk.router)
     application.include_router(recommendations.router)
+
+    # ------------------------------------------------------------------
+    # Dashboard endpoint — serve HTML/CSS/JS frontend
+    # ------------------------------------------------------------------
+
+    @application.get("/dashboard", tags=["System"], include_in_schema=False)
+    async def dashboard() -> FileResponse:
+        """Serve the React dashboard (production build)."""
+        static_index = STATIC_DIR / "index.html"
+        if static_index.exists():
+            return FileResponse(static_index)
+        # Fallback jika belum di-build
+        return JSONResponse(
+            {"message": "Dashboard belum di-build. Jalankan: cd frontend && npm run build"},
+            status_code=404,
+        )
+
+    @application.get("/api/dashboard", tags=["System"], summary="Dashboard data agregat")
+    async def dashboard_data(db=None) -> dict[str, Any]:
+        """
+        Data agregat untuk dashboard JS.
+        Mengembalikan KPI summary + semua wilayah dengan koordinat + Azure Maps key.
+        """
+        from uris_ai.api.dependencies import get_db
+        from uris_ai.models.database import Region, RiskScore
+        from sqlalchemy import func
+
+        db_session = next(get_db())
+        try:
+            regions = db_session.query(Region).all()
+            region_map = {r.region_id: r for r in regions}
+
+            subq = (
+                db_session.query(
+                    RiskScore.region_id,
+                    func.max(RiskScore.date).label("max_date"),
+                )
+                .group_by(RiskScore.region_id)
+                .subquery()
+            )
+            latest_scores = (
+                db_session.query(RiskScore)
+                .join(
+                    subq,
+                    (RiskScore.region_id == subq.c.region_id)
+                    & (RiskScore.date == subq.c.max_date),
+                )
+                .all()
+            )
+
+            from uris_ai.ml.flood_risk_engine import FloodRiskEngine
+            engine = FloodRiskEngine()
+
+            regions_out = []
+            kritis = 0
+            urs_total = 0.0
+
+            for score in latest_scores:
+                region = region_map.get(score.region_id)
+                if not region:
+                    continue
+                cat = engine.get_risk_category(score.urban_risk_score).value
+                if cat == "KRITIS":
+                    kritis += 1
+                urs_total += score.urban_risk_score
+                regions_out.append({
+                    "region_id": score.region_id,
+                    "region_name": region.name,
+                    "kota": region.name.split(",")[-1].strip() if "," in region.name else "",
+                    "latitude": region.latitude,
+                    "longitude": region.longitude,
+                    "flood_risk": score.flood_risk,
+                    "traffic_impact": score.traffic_impact,
+                    "service_access": score.service_access,
+                    "urban_risk_score": score.urban_risk_score,
+                    "risk_category": cat,
+                    "calculated_at": score.date.isoformat(),
+                })
+
+            n = len(regions_out)
+            return {
+                "summary": {
+                    "total_regions": n,
+                    "kritis_count": kritis,
+                    "avg_urs": round(urs_total / n, 1) if n else 0.0,
+                },
+                "regions": regions_out,
+                "maps_key": settings.azure_maps_key or "",
+                "updated_at": __import__("datetime").datetime.now(
+                    __import__("datetime").timezone.utc
+                ).isoformat(),
+            }
+        finally:
+            db_session.close()
+
+    # Mount static files (assets/) — setelah semua route didefinisikan
+    if STATIC_DIR.exists():
+        application.mount(
+            "/assets",
+            StaticFiles(directory=str(STATIC_DIR / "assets")),
+            name="static",
+        )
 
     # ------------------------------------------------------------------
     # Startup and shutdown events

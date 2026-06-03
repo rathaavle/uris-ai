@@ -29,7 +29,7 @@ def get_engine():
     """Get or create the database engine."""
     global _engine
     if _engine is None:
-        _engine = create_db_engine(settings.azure_sql_connection_string)
+        _engine = create_db_engine(settings.azure_mysql_connection_string)
     return _engine
 
 

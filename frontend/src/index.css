@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+    background: #0a1628;
+    color: #e2f0f9;
+    font-family: "Plus Jakarta Sans", sans-serif;
+  }
+}
+
+@layer components {
+  .risk-badge {
+    @apply inline-block text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wide;
+  }
+  .badge-rendah {
+    @apply bg-[#2dc653]/20 text-[#2dc653];
+  }
+  .badge-sedang {
+    @apply bg-[#f4a621]/20 text-[#f4a621];
+  }
+  .badge-tinggi {
+    @apply bg-[#f25c54]/20 text-[#f25c54];
+  }
+  .badge-kritis {
+    @apply bg-[#b44fd4]/20 text-[#b44fd4];
+  }
+
+  .card {
+    @apply bg-b2 border border-bd rounded-lg;
+  }
+
+  .btn-accent {
+    @apply bg-accent hover:bg-accent-h text-white font-semibold rounded-lg
+           transition-colors duration-150 cursor-pointer;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    background: linear-gradient(90deg, #162d50 25%, #1e3a63 50%, #162d50 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: 4px;
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -400px 0;
+    }
+    100% {
+      background-position: 400px 0;
+    }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1a3a5c;
+    border-radius: 4px;
+  }
+
+  /* Live dot */
+  .live-dot {
+    @apply w-2 h-2 rounded-full bg-[#2dc653];
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(0.75);
+    }
+  }
+}

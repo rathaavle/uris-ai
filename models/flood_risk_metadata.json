@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "trained_at": "2026-06-02T16:11:51.992339+00:00",
+  "f1_score": 0.4782608695652174,
+  "feature_importance": {
+    "avg_rainfall": 0.00946142361261019,
+    "max_rainfall": 0.020885562391740733,
+    "avg_humidity": 0.027720546943387568,
+    "avg_temperature": 0.023507078853295976,
+    "avg_wind": 0.0138427650655001,
+    "elevation": 0.05849973628147613,
+    "drainage_capacity": 0.25301755282040256,
+    "flood_count": 0.32061171275844996,
+    "avg_severity": 0.2724536212731369
+  },
+  "top_features": [
+    "flood_count",
+    "avg_severity",
+    "drainage_capacity"
+  ],
+  "feature_cols": [
+    "avg_rainfall",
+    "max_rainfall",
+    "avg_humidity",
+    "avg_temperature",
+    "avg_wind",
+    "elevation",
+    "drainage_capacity",
+    "flood_count",
+    "avg_severity"
+  ],
+  "n_samples": 23,
+  "positive_ratio": 0.4782608695652174,
+  "algorithm": "RandomForestClassifier",
+  "status": "active"
+}

@@ -1,6 +1,5 @@
 """Reset password semua user pakai sha256_crypt (kompatibel dengan auth_service)."""
 import sys
-import urllib.parse
 sys.path.insert(0, 'src')
 
 from sqlalchemy import create_engine
@@ -11,8 +10,9 @@ from uris_ai.services.auth_service import AuthService
 
 auth = AuthService(secret_key=settings.secret_key)
 
-params = urllib.parse.quote_plus(settings.azure_sql_connection_string)
-engine = create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
+from uris_ai.models.db_utils import create_db_engine
+
+engine = create_db_engine(settings.azure_mysql_connection_string)
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -33,3 +33,4 @@ for username, password in users:
 session.commit()
 session.close()
 print("\nSelesai. Login dengan password: Admin123!")
+

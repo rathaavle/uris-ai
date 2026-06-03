@@ -1,6 +1,5 @@
 """Generate risk scores awal untuk semua region."""
 import sys
-import urllib.parse
 import random
 from datetime import datetime, timezone
 sys.path.insert(0, 'src')
@@ -9,9 +8,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from uris_ai.config import settings
 from uris_ai.models.database import Region, RiskScore
+from uris_ai.models.db_utils import create_db_engine
 
-params = urllib.parse.quote_plus(settings.azure_sql_connection_string)
-engine = create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
+engine = create_db_engine(settings.azure_mysql_connection_string)
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -58,3 +57,4 @@ print(f"[OK] {len(scores)} risk scores berhasil dibuat")
 for s in sorted(scores, key=lambda x: x.urban_risk_score, reverse=True)[:5]:
     region = next(r for r in regions if r.region_id == s.region_id)
     print(f"  {region.name}: URS={s.urban_risk_score:.1f} (flood={s.flood_risk:.1f})")
+

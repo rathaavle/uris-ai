@@ -40,12 +40,13 @@ class Settings(BaseSettings):
     )
     azure_location: str = Field(default="southeastasia", description="Azure region")
 
-    # Azure SQL Database
-    azure_sql_server: str = Field(..., description="Azure SQL server name")
-    azure_sql_database: str = Field(..., description="Azure SQL database name")
-    azure_sql_username: str = Field(..., description="Azure SQL username")
-    azure_sql_password: str = Field(..., description="Azure SQL password")
-    azure_sql_connection_string: str = Field(..., description="Azure SQL connection string")
+    # Azure Database for MySQL (Free Tier — Flexible Server B1MS)
+    azure_mysql_host: str = Field(..., description="MySQL server hostname")
+    azure_mysql_port: int = Field(default=3306, description="MySQL port")
+    azure_mysql_database: str = Field(..., description="MySQL database name")
+    azure_mysql_username: str = Field(..., description="MySQL username")
+    azure_mysql_password: str = Field(..., description="MySQL password")
+    azure_mysql_connection_string: str = Field(..., description="MySQL SQLAlchemy URL")
 
     # Azure Blob Storage
     azure_storage_account_name: str = Field(..., description="Azure Storage account name")
@@ -198,9 +199,9 @@ def load_secrets_from_key_vault(settings_instance: Settings) -> None:
         # Load database credentials
         db_creds = kv_service.get_database_credentials()
         if db_creds.get("password"):
-            settings_instance.azure_sql_password = db_creds["password"]
+            settings_instance.azure_mysql_password = db_creds["password"]
         if db_creds.get("connection_string"):
-            settings_instance.azure_sql_connection_string = db_creds["connection_string"]
+            settings_instance.azure_mysql_connection_string = db_creds["connection_string"]
         
         # Load API keys
         api_keys = kv_service.get_api_keys()
