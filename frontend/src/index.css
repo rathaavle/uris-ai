@@ -9,13 +9,15 @@
     padding: 0;
   }
   html,
-  body,
-  #root {
+  body {
     height: 100%;
-    overflow: hidden;
     background: #0a1628;
     color: #e2f0f9;
     font-family: "Plus Jakarta Sans", sans-serif;
+  }
+  /* #root default tidak overflow hidden agar landing page bisa scroll */
+  #root {
+    height: 100%;
   }
 }
 

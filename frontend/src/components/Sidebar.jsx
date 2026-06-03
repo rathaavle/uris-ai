@@ -49,78 +49,92 @@ function RegionCard({ region, index, isSelected, onClick }) {
   );
 }
 
-export default function Sidebar({ regions }) {
-  const {
-    selectedRegionId,
-    cityFilter,
-    search,
-    setCityFilter,
-    setSearch,
-    setSelectedRegion,
-  } = useStore();
+// Bagian filter + search yang bisa dipakai standalone
+export function SidebarFilters() {
+  const { cityFilter, search, setCityFilter, setSearch } = useStore();
+  return (
+    <div className="px-3.5 pt-3 pb-2.5 border-b border-bd flex-shrink-0">
+      <div
+        className="flex gap-1 mb-2 overflow-x-auto pb-0.5
+                      [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+      >
+        {CITIES.map((city) => (
+          <button
+            key={city}
+            onClick={() => setCityFilter(city)}
+            className={`text-[10px] font-semibold px-2.5 py-1 rounded border
+                        transition-all duration-150 flex-shrink-0
+                        ${
+                          cityFilter === city
+                            ? "bg-accent/15 border-accent text-accent"
+                            : "bg-b2 border-bd text-t3 hover:border-accent hover:text-t2"
+                        }`}
+          >
+            {city}
+          </button>
+        ))}
+      </div>
+      <div className="relative">
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-t3 text-xs">
+          🔍
+        </span>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cari wilayah..."
+          className="w-full bg-b2 border border-bd rounded-md pl-7 pr-3 py-1.5
+                     text-[11.5px] text-t1 placeholder:text-t3 outline-none
+                     focus:border-accent transition-colors"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Daftar region yang scrollable
+export function SidebarList({ regions, onSelect }) {
+  const { selectedRegionId, cityFilter, search, setSelectedRegion } =
+    useStore();
   const filtered = filterRegions(regions, cityFilter, search);
 
+  function handleSelect(id) {
+    setSelectedRegion(id);
+    onSelect?.();
+  }
+
   return (
-    <div className="flex flex-col bg-b1 border-l border-bd overflow-hidden w-[300px] flex-shrink-0">
-      {/* Header */}
-      <div className="px-3.5 pt-3 pb-2.5 border-b border-bd flex-shrink-0">
+    <div className="flex-1 overflow-y-auto px-2.5 py-2 min-h-0">
+      {filtered.length === 0 ? (
+        <p className="text-center text-t3 text-[11px] mt-6">
+          Tidak ada wilayah ditemukan
+        </p>
+      ) : (
+        filtered.map((r, i) => (
+          <RegionCard
+            key={r.region_id}
+            region={r}
+            index={i}
+            isSelected={r.region_id === selectedRegionId}
+            onClick={() => handleSelect(r.region_id)}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+// Sidebar desktop — fixed width, border kiri
+export default function Sidebar({ regions, onSelect }) {
+  return (
+    <div className="flex flex-col bg-b1 border-l border-bd overflow-hidden w-[300px] flex-shrink-0 h-full">
+      <div className="px-3.5 pt-3 pb-0 flex-shrink-0">
         <p className="text-[10px] text-t2 uppercase tracking-[0.6px] font-bold mb-2">
           Daftar Wilayah
         </p>
-
-        {/* City filters */}
-        <div className="flex flex-wrap gap-1 mb-2">
-          {CITIES.map((city) => (
-            <button
-              key={city}
-              onClick={() => setCityFilter(city)}
-              className={`text-[10px] font-semibold px-2 py-1 rounded border transition-all duration-150
-                          ${
-                            cityFilter === city
-                              ? "bg-accent/15 border-accent text-accent"
-                              : "bg-b2 border-bd text-t3 hover:border-accent hover:text-t2"
-                          }`}
-            >
-              {city}
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div className="relative">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-t3 text-xs">
-            🔍
-          </span>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari wilayah..."
-            className="w-full bg-b2 border border-bd rounded-md pl-7 pr-3 py-1.5
-                       text-[11.5px] text-t1 placeholder:text-t3 outline-none
-                       focus:border-accent transition-colors"
-          />
-        </div>
       </div>
-
-      {/* Region list */}
-      <div className="flex-1 overflow-y-auto px-2.5 py-2">
-        {filtered.length === 0 ? (
-          <p className="text-center text-t3 text-[11px] mt-6">
-            Tidak ada wilayah ditemukan
-          </p>
-        ) : (
-          filtered.map((r, i) => (
-            <RegionCard
-              key={r.region_id}
-              region={r}
-              index={i}
-              isSelected={r.region_id === selectedRegionId}
-              onClick={() => setSelectedRegion(r.region_id)}
-            />
-          ))
-        )}
-      </div>
+      <SidebarFilters />
+      <SidebarList regions={regions} onSelect={onSelect} />
     </div>
   );
 }

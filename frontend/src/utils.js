@@ -20,11 +20,12 @@ export function formatURS(val) {
 export function filterRegions(regions, cityFilter, search) {
   let list = [...regions];
   if (cityFilter && cityFilter !== "Semua") {
-    list = list.filter(
-      (r) =>
-        (r.kota || "").toLowerCase().includes(cityFilter.toLowerCase()) ||
-        (r.region_name || "").toLowerCase().includes(cityFilter.toLowerCase()),
-    );
+    list = list.filter((r) => {
+      const kota = (r.kota || "").toLowerCase();
+      const name = (r.region_name || "").toLowerCase();
+      const filter = cityFilter.toLowerCase();
+      return kota.includes(filter) || name.includes(filter);
+    });
   }
   if (search) {
     const q = search.toLowerCase();

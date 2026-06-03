@@ -206,6 +206,27 @@ def create_app() -> FastAPI:
             from uris_ai.ml.flood_risk_engine import FloodRiskEngine
             engine = FloodRiskEngine()
 
+            # Mapping nama wilayah ke kota (case-insensitive match)
+            NAMA_KOTA_MAP = {
+                "gambir": "Jakarta Pusat", "menteng": "Jakarta Pusat",
+                "tanah abang": "Jakarta Pusat", "kemayoran": "Jakarta Pusat",
+                "penjaringan": "Jakarta Utara", "pademangan": "Jakarta Utara",
+                "kelapa gading": "Jakarta Utara",
+                "cengkareng": "Jakarta Barat", "kebon jeruk": "Jakarta Barat",
+                "grogol petamburan": "Jakarta Barat",
+                "kebayoran baru": "Jakarta Selatan", "tebet": "Jakarta Selatan",
+                "cilandak": "Jakarta Selatan",
+                "matraman": "Jakarta Timur", "jatinegara": "Jakarta Timur",
+                "cakung": "Jakarta Timur",
+                "bandung wetan": "Kota Bandung", "cicendo": "Kota Bandung",
+                "coblong": "Kota Bandung",
+                "bogor tengah": "Kota Bogor", "bogor utara": "Kota Bogor",
+                "tanah sareal": "Kota Bogor",
+                "bekasi timur": "Kota Bekasi", "bekasi barat": "Kota Bekasi",
+                "pondok gede": "Kota Bekasi",
+                "depok": "Kota Depok",
+            }
+
             regions_out = []
             kritis = 0
             urs_total = 0.0
@@ -218,10 +239,11 @@ def create_app() -> FastAPI:
                 if cat == "KRITIS":
                     kritis += 1
                 urs_total += score.urban_risk_score
+                kota = NAMA_KOTA_MAP.get(region.name.lower().strip(), "")
                 regions_out.append({
                     "region_id": score.region_id,
                     "region_name": region.name,
-                    "kota": region.name.split(",")[-1].strip() if "," in region.name else "",
+                    "kota": kota,
                     "latitude": region.latitude,
                     "longitude": region.longitude,
                     "flood_risk": score.flood_risk,

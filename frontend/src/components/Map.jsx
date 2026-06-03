@@ -7,91 +7,22 @@ import { getRiskColor } from "../utils";
 const FLOOD_RADIUS = { TINGGI: 28, KRITIS: 36 };
 
 export default function Map({ regions, mapsKey }) {
-  const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const dsRef = useRef(null);
   const floodDsRef = useRef(null);
+  // Selalu simpan data terbaru di ref agar bisa diakses dari dalam closure
+  const regionsRef = useRef([]);
+  const selectedIdRef = useRef(null);
   const { selectedRegionId, setSelectedRegion } = useStore();
 
-  // Init map once
-  useEffect(() => {
-    if (!mapsKey || mapInstance.current) return;
+  // Sinkronisasi ref dengan prop/state terbaru
+  regionsRef.current = regions;
+  selectedIdRef.current = selectedRegionId;
 
-    const map = new atlas.Map("azure-map", {
-      center: [106.8456, -6.2088],
-      zoom: 10,
-      language: "id-ID",
-      style: "night",
-      authOptions: { authType: "subscriptionKey", subscriptionKey: mapsKey },
-    });
-
-    map.events.add("ready", () => {
-      const floodDs = new atlas.source.DataSource();
-      const ds = new atlas.source.DataSource();
-      map.sources.add(floodDs);
-      map.sources.add(ds);
-
-      // Flood overlay
-      map.layers.add(
-        new atlas.layer.BubbleLayer(floodDs, null, {
-          radius: ["get", "r"],
-          color: ["get", "c"],
-          opacity: 0.14,
-          strokeColor: ["get", "c"],
-          strokeWidth: 1.5,
-          strokeOpacity: 0.32,
-        }),
-      );
-
-      // Markers
-      const bubble = new atlas.layer.BubbleLayer(ds, null, {
-        radius: 14,
-        color: ["get", "color"],
-        strokeColor: ["get", "stroke"],
-        strokeWidth: ["get", "sw"],
-        opacity: 0.85,
-      });
-
-      // Labels
-      map.layers.add(
-        new atlas.layer.SymbolLayer(ds, null, {
-          iconOptions: { image: "none" },
-          textOptions: {
-            textField: ["get", "label"],
-            color: "#ffffff",
-            size: 10,
-            font: ["StandardFont-Bold"],
-            offset: [0, 0],
-          },
-        }),
-      );
-
-      map.layers.add(bubble);
-
-      map.events.add("click", bubble, (e) => {
-        const props = e.shapes?.[0]?.getProperties();
-        if (props?.id) setSelectedRegion(props.id);
-      });
-      map.events.add("mouseover", bubble, () => {
-        map.getCanvasContainer().style.cursor = "pointer";
-      });
-      map.events.add("mouseout", bubble, () => {
-        map.getCanvasContainer().style.cursor = "grab";
-      });
-
-      dsRef.current = ds;
-      floodDsRef.current = floodDs;
-      mapInstance.current = map;
-    });
-
-    mapRef.current = map;
-  }, [mapsKey]);
-
-  // Update markers when regions or selection changes
-  useEffect(() => {
+  function renderMarkers(regionList, selectedId) {
     const ds = dsRef.current;
     const fds = floodDsRef.current;
-    if (!ds || !fds || !regions.length) return;
+    if (!ds || !fds || !regionList.length) return;
 
     ds.clear();
     fds.clear();
@@ -99,10 +30,10 @@ export default function Map({ regions, mapsKey }) {
     const markers = [];
     const floods = [];
 
-    regions.forEach((r) => {
+    regionList.forEach((r) => {
       if (!r.latitude || !r.longitude) return;
       const color = getRiskColor(r.risk_category);
-      const isSelected = r.region_id === selectedRegionId;
+      const isSelected = r.region_id === selectedId;
       const pt = new atlas.data.Point([r.longitude, r.latitude]);
 
       markers.push(
@@ -127,9 +58,86 @@ export default function Map({ regions, mapsKey }) {
 
     ds.add(markers);
     fds.add(floods);
+  }
+
+  // Init map — hanya sekali saat mapsKey tersedia
+  useEffect(() => {
+    if (!mapsKey || mapInstance.current) return;
+
+    const map = new atlas.Map("azure-map", {
+      center: [106.8456, -6.2088],
+      zoom: 10,
+      language: "id-ID",
+      style: "night",
+      authOptions: { authType: "subscriptionKey", subscriptionKey: mapsKey },
+    });
+
+    map.events.add("ready", () => {
+      const floodDs = new atlas.source.DataSource();
+      const ds = new atlas.source.DataSource();
+      map.sources.add(floodDs);
+      map.sources.add(ds);
+
+      map.layers.add(
+        new atlas.layer.BubbleLayer(floodDs, null, {
+          radius: ["get", "r"],
+          color: ["get", "c"],
+          opacity: 0.14,
+          strokeColor: ["get", "c"],
+          strokeWidth: 1.5,
+          strokeOpacity: 0.32,
+        }),
+      );
+
+      map.layers.add(
+        new atlas.layer.SymbolLayer(ds, null, {
+          iconOptions: { image: "none" },
+          textOptions: {
+            textField: ["get", "label"],
+            color: "#ffffff",
+            size: 10,
+            font: ["StandardFont-Bold"],
+            offset: [0, 0],
+          },
+        }),
+      );
+
+      const bubble = new atlas.layer.BubbleLayer(ds, null, {
+        radius: 14,
+        color: ["get", "color"],
+        strokeColor: ["get", "stroke"],
+        strokeWidth: ["get", "sw"],
+        opacity: 0.85,
+      });
+      map.layers.add(bubble);
+
+      map.events.add("click", bubble, (e) => {
+        const props = e.shapes?.[0]?.getProperties();
+        if (props?.id) setSelectedRegion(props.id);
+      });
+      map.events.add("mouseover", bubble, () => {
+        map.getCanvasContainer().style.cursor = "pointer";
+      });
+      map.events.add("mouseout", bubble, () => {
+        map.getCanvasContainer().style.cursor = "grab";
+      });
+
+      dsRef.current = ds;
+      floodDsRef.current = floodDs;
+      mapInstance.current = map;
+
+      // Render langsung pakai data terbaru dari ref
+      renderMarkers(regionsRef.current, selectedIdRef.current);
+    });
+  }, [mapsKey]);
+
+  // Re-render saat regions berubah (setelah map sudah ready)
+  useEffect(() => {
+    if (!dsRef.current || !regions.length) return;
+    renderMarkers(regions, selectedRegionId);
   }, [regions, selectedRegionId]);
 
-  // Fly to selected region
+  // Fly to selected
   useEffect(() => {
     if (!selectedRegionId || !mapInstance.current) return;
     const r = regions.find((x) => x.region_id === selectedRegionId);
@@ -147,9 +155,9 @@ export default function Map({ regions, mapsKey }) {
     <div className="relative w-full h-full">
       <div id="azure-map" className="w-full h-full bg-b0" />
 
-      {/* Legend */}
+      {/* Legend — pojok kiri bawah, naik agar tidak nutup watermark Azure */}
       <div
-        className="absolute bottom-3 left-3 bg-b1/95 border border-bd
+        className="absolute bottom-10 left-3 bg-b1/95 border border-bd
                       rounded-lg px-3 py-2.5 backdrop-blur-sm z-10"
       >
         <p className="text-[9px] text-t3 uppercase tracking-[0.7px] font-semibold mb-1.5">
@@ -161,9 +169,9 @@ export default function Map({ regions, mapsKey }) {
           ["Tinggi (51–75)", "#f25c54"],
           ["Kritis (76–100)", "#b44fd4"],
         ].map(([label, color]) => (
-          <div key={label} className="flex items-center gap-1.5 mb-1">
+          <div key={label} className="flex items-center gap-1.5 mb-1 last:mb-0">
             <span
-              className="w-3 h-3 rounded-full flex-shrink-0"
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ background: color }}
             />
             <span className="text-[10px] text-t2">{label}</span>

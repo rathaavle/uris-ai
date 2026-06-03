@@ -30,6 +30,11 @@ regions = {r.region_id: r.name for r in session.query(Region).all()}
 now = datetime.now(timezone.utc)
 count = 0
 
+# Cek existing recommendations untuk hindari duplikat
+existing_keys = set()
+for rec in session.query(Recommendation).filter(Recommendation.is_active == True).all():
+    existing_keys.add((rec.region_id, rec.recommendation_type, rec.urgency_level, rec.description))
+
 # Template rekomendasi berdasarkan kategori risiko
 RECOMMENDATIONS = {
     "KRITIS": [
@@ -63,6 +68,11 @@ for score in latest_scores:
     expires = now + timedelta(hours=24)
 
     for rec_type, description, urgency in templates:
+        # Skip jika sudah ada (hindari duplikat)
+        key = (score.region_id, rec_type, urgency, description)
+        if key in existing_keys:
+            continue
+
         rec = Recommendation(
             region_id=score.region_id,
             recommendation_type=rec_type,
@@ -73,6 +83,7 @@ for score in latest_scores:
             is_active=True,
         )
         session.add(rec)
+        existing_keys.add(key)
         count += 1
 
 session.commit()
