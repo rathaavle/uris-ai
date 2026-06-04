@@ -2,56 +2,62 @@
 
 **Urban Risk Intelligence System for Flood-Aware Mobility and Public Service Optimization**
 
-URIS-AI adalah sistem berbasis cloud yang mengintegrasikan data multi-sumber untuk memprediksi dan menganalisis risiko urban secara komprehensif. Sistem ini memantau 25 wilayah di Jakarta dan Jawa Barat, menghitung Urban Risk Score (URS) per wilayah, dan menyajikan informasi melalui dashboard peta interaktif.
+URIS-AI adalah sistem berbasis cloud yang mengintegrasikan data multi-sumber untuk memprediksi dan menganalisis risiko urban. Sistem ini memantau 25 wilayah di Jakarta dan Jawa Barat, menghitung Urban Risk Score (URS) per wilayah, dan menyajikan informasi melalui dashboard peta interaktif.
 
-> Status proyek: Demo / Simulasi — seluruh data URS bersifat simulasi untuk keperluan presentasi dan pengembangan.
+> **Status:** Demo / Simulasi — seluruh data URS bersifat simulasi untuk keperluan presentasi dan pengembangan.
+
+---
+
+## 🌐 Live Demo
+
+**https://urisai-api-zgwts4p3va-as.a.run.app**
+
+| Halaman            | URL          |
+| ------------------ | ------------ |
+| Landing Page       | `/`          |
+| Dashboard          | `/dashboard` |
+| API Docs (Swagger) | `/docs`      |
+| Health Check       | `/health`    |
 
 ---
 
 ## Daftar Isi
 
 - [Fitur Utama](#fitur-utama)
-- [Instalasi](#instalasi)
+- [Instalasi Lokal](#instalasi-lokal)
 - [Menjalankan Proyek](#menjalankan-proyek)
+- [Deploy ke GCP Cloud Run](#deploy-ke-gcp-cloud-run)
 - [Struktur Folder](#struktur-folder)
 - [Teknologi yang Digunakan](#teknologi-yang-digunakan)
+- [API Endpoints](#api-endpoints)
 
 ---
 
 ## Fitur Utama
 
-**Penilaian Risiko Urban (Urban Risk Score)**
-Menghitung URS terpadu (0–100) per wilayah menggunakan formula berbobot: risiko banjir (50%), dampak lalu lintas (30%), dan aksesibilitas layanan publik (20%). Hasil dikategorikan menjadi empat level: RENDAH, SEDANG, TINGGI, dan KRITIS.
+**Urban Risk Score (URS)**
+Menghitung URS terpadu (0–100) per wilayah: risiko banjir (50%), dampak lalu lintas (30%), aksesibilitas layanan publik (20%). Dikategorikan menjadi RENDAH, SEDANG, TINGGI, dan KRITIS.
 
-**Prediksi Risiko Banjir dengan Machine Learning**
-Model scikit-learn terlatih yang mengklasifikasikan risiko banjir berdasarkan data historis banjir, curah hujan, elevasi wilayah, dan kapasitas drainase.
+**Peta Interaktif**
+Visualisasi real-time seluruh wilayah menggunakan Azure Maps SDK (night style). Marker berwarna per kategori, flood overlay untuk wilayah risiko tinggi.
 
-**Dashboard Peta Interaktif**
-Visualisasi risiko seluruh wilayah secara real-time menggunakan Azure Maps SDK dengan tampilan night style. Setiap wilayah ditampilkan sebagai marker berwarna sesuai kategori risiko, dilengkapi flood overlay untuk wilayah TINGGI dan KRITIS.
-
-**Rekomendasi Tindakan Kontekstual**
-Sistem menghasilkan rekomendasi per wilayah berdasarkan kategori URS, mencakup tipe peringatan, rute alternatif, informasi fasilitas, evakuasi, dan alokasi sumber daya, dengan level urgensi Segera, Waspada, dan Siaga.
-
-**Rute Aman**
-Pencarian rute dari titik asal ke tujuan yang secara otomatis menghindari wilayah berkategori TINGGI dan KRITIS.
+**Rekomendasi Tindakan**
+Rekomendasi kontekstual per wilayah berdasarkan kategori URS — peringatan, rute alternatif, fasilitas, evakuasi, alokasi sumber daya.
 
 **Tren Historis URS**
-Visualisasi tren Urban Risk Score per wilayah dalam rentang waktu 1 hingga 168 jam terakhir, ditampilkan sebagai grafik area (AreaChart) di panel detail wilayah.
+Grafik tren Urban Risk Score 24 jam per wilayah (AreaChart) di panel detail.
 
-**Autentikasi JWT**
-Sistem login berbasis JWT (HS256) dengan dua role pengguna: `government` dan `public`. Token berlaku selama 30 menit.
-
-**Monitoring dan Observabilitas**
-Health check endpoint (liveness, readiness, performance), request logging, rate limiting per IP, dan integrasi Azure Application Insights.
+**Prediksi Banjir ML**
+Model scikit-learn terlatih mengklasifikasikan risiko banjir berdasarkan data historis, curah hujan, elevasi, dan kapasitas drainase.
 
 ---
 
-## Instalasi
+## Instalasi Lokal
 
 ### Prasyarat
 
 - Python 3.11+
-- Node.js 18+ (disarankan v23 via Laragon di Windows)
+- Node.js 18+ (disarankan v23)
 - Akses ke Azure Database for MySQL
 - Azure Maps Subscription Key
 
@@ -68,23 +74,16 @@ cd uris-ai
 cp .env.example .env
 ```
 
-Edit file `.env` dan isi variabel berikut:
+Isi variabel utama di `.env`:
 
 ```dotenv
-# Koneksi database MySQL
 AZURE_MYSQL_CONNECTION_STRING=mysql+pymysql://user:password@host/uris-ai-db
-
-# Kunci Azure Maps (dari Azure Portal)
 AZURE_MAPS_KEY=your-azure-maps-key
-
-# JWT secret key
 SECRET_KEY=your-random-secret-key
-
-# Mode development
 APP_ENV=development
 DEBUG=true
 API_RELOAD=true
-AZURE_KEY_VAULT_ENABLED=false
+ENABLE_CACHING=false
 ENABLE_RATE_LIMITING=false
 ```
 
@@ -94,22 +93,13 @@ ENABLE_RATE_LIMITING=false
 python -m pip install -r requirements.txt
 ```
 
-### 4. Inisialisasi Database dan Seeding Data
+### 4. Inisialisasi Database
 
 ```bash
-# Terapkan migrasi schema
 python scripts/migrate_data.py
-
-# Seed data awal (25 wilayah, 646 flood events, jalan, fasilitas)
 python scripts/seed_data.py
-
-# Generate risk scores
 python scripts/generate_risk_scores.py
-
-# Generate data historis URS (24 jam per wilayah)
 python scripts/generate_urs_history.py
-
-# Generate rekomendasi tindakan
 python scripts/generate_recommendations.py
 ```
 
@@ -126,69 +116,62 @@ npm install
 
 ### Development (Backend + Frontend Terpisah)
 
-Jalankan backend di terminal pertama:
+Terminal 1 — Backend:
 
 ```bash
 # Dari direktori root
+$env:PYTHONPATH = "src"
 python -m uvicorn uris_ai.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Jalankan frontend di terminal kedua:
+Terminal 2 — Frontend:
 
 ```bash
 cd frontend
-npm run dev
+node_modules\.bin\vite.cmd        # Windows
+# atau
+npm run dev                       # Linux/Mac
 ```
 
-Frontend tersedia di `http://localhost:5173` dan akan meneruskan request API ke backend di port 8000 melalui Vite dev proxy.
+Frontend di `http://localhost:5173`, proxy API ke backend port 8000.
 
-### Production Build
+### Production Build (Local)
 
 ```bash
-# Build frontend ke direktori static FastAPI
 cd frontend
-npm run build
+node_modules\.bin\vite.cmd build
 
-# Jalankan backend (melayani frontend sebagai static files)
-python -m uvicorn uris_ai.api.main:app --host 0.0.0.0 --port 8000 --workers 4
+# Jalankan backend (serve frontend sebagai static files)
+$env:PYTHONPATH = "src"
+python -m uvicorn uris_ai.api.main:app --host 0.0.0.0 --port 8000
 ```
 
-Akses aplikasi di `http://localhost:8000/dashboard`.
+---
 
-### Windows (PowerShell / Laragon)
+## Deploy ke GCP Cloud Run
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-$env:PATH = "C:\laragon\bin\nodejs\node-v23.3.0-win-x64;" + $env:PATH
+Lihat dokumentasi lengkap: **[docs/deployment.md](docs/deployment.md)**
 
-# Jalankan backend
-python -m uvicorn uris_ai.api.main:app --reload
+### Ringkasan Cepat
 
-# Di terminal lain, jalankan frontend
-cd frontend
-node_modules\.bin\vite.cmd
+```bash
+# 1. Set project GCP
+gcloud config set project uris-ai-project
+
+# 2. Build dan push image
+IMAGE="asia-southeast1-docker.pkg.dev/uris-ai-project/urisai-repo/urisai-api:latest"
+gcloud builds submit . --tag $IMAGE
+
+# 3. Deploy ke Cloud Run
+gcloud run deploy urisai-api \
+  --image=$IMAGE \
+  --platform=managed \
+  --region=asia-southeast1 \
+  --allow-unauthenticated \
+  --port=8080
 ```
 
-### Akun Default
-
-| Username | Password  | Role       |
-| -------- | --------- | ---------- |
-| admin    | Admin123! | government |
-| public   | Admin123! | public     |
-
-### Endpoint Penting
-
-| Endpoint                       | Keterangan                              |
-| ------------------------------ | --------------------------------------- |
-| `GET /`                        | Info aplikasi                           |
-| `GET /health`                  | Health check dasar                      |
-| `GET /health/ready`            | Readiness check (DB + cache)            |
-| `GET /api/dashboard`           | Data agregat dashboard (regions + KPI)  |
-| `GET /regions/risk`            | URS semua wilayah                       |
-| `GET /regions/{id}/risk`       | URS satu wilayah                        |
-| `GET /regions/{id}/risk/trend` | Tren historis URS                       |
-| `POST /auth/login`             | Login, mendapatkan JWT                  |
-| `GET /docs`                    | Dokumentasi API interaktif (Swagger UI) |
+**Live URL:** `https://urisai-api-zgwts4p3va-as.a.run.app`
 
 ---
 
@@ -196,96 +179,53 @@ node_modules\.bin\vite.cmd
 
 ```
 uris-ai/
-├── .env                        # Konfigurasi environment (tidak di-commit)
-├── .env.example                # Template konfigurasi environment
-├── requirements.txt            # Dependensi Python
-├── pyproject.toml              # Konfigurasi proyek dan tooling
+├── .env                          # Environment variables (tidak di-commit)
+├── .env.example                  # Template environment
+├── .gcloudignore                 # File yang dikecualikan saat Cloud Build
+├── Dockerfile                    # Docker image untuk GCP Cloud Run
+├── requirements.txt              # Dependensi Python
+├── startup.sh                    # Script startup (referensi)
 │
-├── src/
-│   └── uris_ai/
-│       ├── api/
-│       │   ├── main.py         # App factory, middleware, endpoint utama
-│       │   ├── dependencies.py # Dependency injection (DB, auth, role)
-│       │   ├── middleware.py   # RateLimit, RequestLogging, HTTPSRedirect
-│       │   ├── schemas.py      # Pydantic request/response schemas
-│       │   └── routers/
-│       │       ├── auth.py             # POST /auth/login, /auth/logout
-│       │       ├── risk.py             # GET /regions/risk, /{id}/risk/trend
-│       │       ├── recommendations.py  # GET rekomendasi, POST /routes/safe
-│       │       └── users.py            # GET /users/me
-│       ├── models/
-│       │   ├── database.py     # SQLAlchemy ORM models (8 tabel)
-│       │   └── db_utils.py     # Engine factory PyMySQL + SSL
-│       ├── ml/
-│       │   ├── flood_risk_engine.py        # Klasifikasi kategori risiko
-│       │   ├── risk_scoring_engine.py      # Kalkulasi URS dan tren
-│       │   └── recommendation_engine.py   # Rekomendasi dan rute aman
-│       ├── services/
-│       │   ├── auth_service.py  # JWT create/decode, bcrypt verify
-│       │   └── cache_service.py # Redis cache wrapper
-│       ├── security/
-│       │   └── input_validation.py
-│       ├── database/
-│       │   └── optimization.py  # Manajemen index database
-│       ├── utils/
-│       │   ├── logging_config.py
-│       │   └── monitoring.py    # Application Insights wrapper
-│       ├── config.py            # Settings dari .env (pydantic-settings)
-│       └── startup.py           # Startup: buat index, cache warming
+├── src/uris_ai/
+│   ├── api/
+│   │   ├── main.py               # App factory, middleware, semua endpoint
+│   │   ├── dependencies.py       # DI: DB session, auth, role checker
+│   │   ├── middleware.py         # RateLimit, RequestLogging, HTTPSRedirect
+│   │   ├── schemas.py            # Pydantic schemas
+│   │   └── routers/              # auth, risk, recommendations, users
+│   ├── models/
+│   │   ├── database.py           # SQLAlchemy ORM (8 tabel)
+│   │   └── db_utils.py           # Engine factory PyMySQL
+│   ├── ml/
+│   │   ├── flood_risk_engine.py  # Klasifikasi kategori risiko
+│   │   ├── risk_scoring_engine.py
+│   │   └── recommendation_engine.py
+│   ├── services/
+│   │   ├── auth_service.py       # JWT + bcrypt
+│   │   └── cache_service.py      # Redis (opsional)
+│   ├── utils/
+│   │   ├── logging_config.py
+│   │   └── monitoring.py         # Application Insights (opsional)
+│   ├── static/                   # React build output (npm run build)
+│   ├── config.py                 # Settings dari env vars
+│   └── startup.py                # Index DB + cache warming
 │
 ├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js          # Dev proxy ke :8000, build ke src/uris_ai/static/
-│   ├── tailwind.config.js      # Custom theme Ocean Deep
-│   └── src/
-│       ├── main.jsx            # Entry: BrowserRouter + QueryClientProvider
-│       ├── App.jsx             # Dashboard utama (/dashboard)
-│       ├── api.js              # Fetch wrapper ke backend endpoints
-│       ├── store.js            # Zustand global state
-│       ├── utils.js            # getRiskColor, filterRegions, formatURS
-│       ├── components/
-│       │   ├── Header.jsx
-│       │   ├── KpiCards.jsx
-│       │   ├── Map.jsx
-│       │   ├── Sidebar.jsx
-│       │   ├── DetailPanel.jsx
-│       │   ├── DisclaimerModal.jsx
-│       │   └── LoadingScreen.jsx
-│       └── pages/
-│           └── LandingPage.jsx
+│   ├── src/
+│   │   ├── App.jsx               # Dashboard (/dashboard)
+│   │   ├── api.js                # Fetch wrapper
+│   │   ├── store.js              # Zustand state
+│   │   ├── utils.js              # Helper functions
+│   │   ├── components/           # Header, Map, Sidebar, DetailPanel, ...
+│   │   └── pages/LandingPage.jsx
+│   ├── public/                   # Logo dan gambar statis
+│   └── vite.config.js            # Dev proxy + build config
 │
-├── models/
-│   ├── flood_risk_model.pkl    # Model scikit-learn terlatih
-│   ├── flood_risk_scaler.pkl   # Scaler normalisasi fitur
-│   └── flood_risk_metadata.json
-│
-├── data/
-│   └── raw/
-│       ├── bmkg/               # Data cuaca BMKG (432 record)
-│       ├── osm/                # Data jalan dan fasilitas OpenStreetMap
-│       ├── historis_banjir/    # Data historis banjir Jakarta
-│       ├── petabencana/        # Laporan banjir PetaBencana
-│       └── wilayah/            # Data administrasi wilayah
-│
-├── scripts/                    # Utilitas manajemen data dan deployment
-│   ├── seed_data.py
-│   ├── migrate_data.py
-│   ├── generate_risk_scores.py
-│   ├── generate_urs_history.py
-│   ├── generate_recommendations.py
-│   ├── train_flood_model.py
-│   ├── blue_green_deploy.sh
-│   ├── rollback_deployment.sh
-│   └── run_smoke_tests.sh
-│
-├── infrastructure/
-│   └── terraform/              # Infrastructure as Code (Azure)
-│
-├── docs/
-│   └── project_documentation.md
-│
-└── logs/
+├── scripts/                      # Utilitas data dan deployment
+├── data/raw/                     # Data mentah (BMKG, OSM, PetaBencana)
+├── models/                       # ML model pkl files
+├── docs/                         # Dokumentasi lengkap
+└── infrastructure/terraform/     # IaC untuk Azure resources
 ```
 
 ---
@@ -294,59 +234,63 @@ uris-ai/
 
 ### Backend
 
-| Komponen          | Versi   | Keterangan                        |
-| ----------------- | ------- | --------------------------------- |
-| Python            | 3.11+   | Runtime utama                     |
-| FastAPI           | 0.109.2 | Web framework (ASGI)              |
-| Uvicorn           | 0.27.1  | ASGI server                       |
-| SQLAlchemy        | 2.0.49  | ORM                               |
-| PyMySQL           | 1.1.0   | MySQL driver                      |
-| Pydantic          | 2.5.3   | Validasi data dan schema          |
-| pydantic-settings | 2.1.0   | Konfigurasi dari environment vars |
-| python-jose       | 3.3.0   | JWT token (HS256)                 |
-| passlib[bcrypt]   | 1.7.4   | Password hashing                  |
-| scikit-learn      | 1.4.0   | Model machine learning            |
-| pandas            | 2.2.0   | Pemrosesan data                   |
-| numpy             | 1.26.4  | Komputasi numerik                 |
-| redis             | 5.0.1   | Cache client (opsional)           |
+| Komponen        | Versi   | Keterangan           |
+| --------------- | ------- | -------------------- |
+| Python          | 3.12    | Runtime              |
+| FastAPI         | 0.109.2 | Web framework (ASGI) |
+| Uvicorn         | 0.27.1  | ASGI server          |
+| SQLAlchemy      | 2.0.49  | ORM                  |
+| PyMySQL         | 1.1.0   | MySQL driver         |
+| Pydantic        | 2.5.3   | Validasi data        |
+| python-jose     | 3.3.0   | JWT (HS256)          |
+| passlib[bcrypt] | 1.7.4   | Password hashing     |
+| scikit-learn    | 1.4.0   | ML model             |
+| pandas          | 2.2.0   | Data processing      |
 
 ### Frontend
 
-| Komponen              | Versi  | Keterangan                   |
-| --------------------- | ------ | ---------------------------- |
-| React                 | 18.3.1 | UI framework                 |
-| Vite                  | 5.3.1  | Build tool dan dev server    |
-| TailwindCSS           | 3.4.4  | Utility-first CSS framework  |
-| @tanstack/react-query | 5.40.0 | Server state management      |
-| Zustand               | 4.5.2  | Client state management      |
-| azure-maps-control    | 3.3.0  | Peta interaktif (Azure Maps) |
-| Recharts              | 2.12.7 | Grafik dan visualisasi data  |
-| React Router DOM      | 6.23.1 | Routing SPA                  |
+| Komponen              | Versi  | Keterangan      |
+| --------------------- | ------ | --------------- |
+| React                 | 18.3.1 | UI framework    |
+| Vite                  | 5.4.21 | Build tool      |
+| TailwindCSS           | 3.4.4  | Utility CSS     |
+| React Router DOM      | 6.23.1 | SPA routing     |
+| @tanstack/react-query | 5.40.0 | Server state    |
+| Zustand               | 4.5.2  | Client state    |
+| azure-maps-control    | 3.3.0  | Peta interaktif |
+| Recharts              | 2.12.7 | Grafik          |
 
-### Cloud dan Infrastruktur
+### Cloud & Infrastruktur
 
-| Layanan                    | Keterangan                          |
-| -------------------------- | ----------------------------------- |
-| Azure Database for MySQL   | Database utama (Free Tier, B1MS)    |
-| Azure Maps                 | Peta interaktif (Gen2, night style) |
-| Azure Blob Storage         | Penyimpanan data raw dan processed  |
-| Azure Key Vault            | Manajemen secrets                   |
-| Azure Application Insights | Monitoring dan telemetri            |
-| Terraform                  | Infrastructure as Code              |
+| Layanan                   | Keterangan                         |
+| ------------------------- | ---------------------------------- |
+| **GCP Cloud Run**         | Hosting aplikasi (asia-southeast1) |
+| **GCP Artifact Registry** | Docker image repository            |
+| **GCP Cloud Build**       | CI/CD build pipeline               |
+| Azure Database for MySQL  | Database utama (Free Tier B1MS)    |
+| Azure Maps                | Peta interaktif (Gen2)             |
+| Azure Blob Storage        | Penyimpanan data                   |
+| Azure Key Vault           | Secrets management                 |
 
-### Testing dan Tooling
+---
 
-| Komponen   | Versi  | Keterangan             |
-| ---------- | ------ | ---------------------- |
-| pytest     | 7.4.4  | Testing framework      |
-| hypothesis | 6.96.1 | Property-based testing |
-| locust     | 2.20.0 | Load testing           |
-| black      | 24.1.1 | Code formatter         |
-| ruff       | 0.1.14 | Linter                 |
-| mypy       | 1.8.0  | Static type checker    |
+## API Endpoints
+
+| Method | Endpoint                        | Keterangan                        |
+| ------ | ------------------------------- | --------------------------------- |
+| GET    | `/health`                       | Health check                      |
+| GET    | `/api/dashboard`                | Data semua wilayah + KPI          |
+| GET    | `/regions/risk`                 | URS semua wilayah                 |
+| GET    | `/regions/{id}/risk`            | URS satu wilayah                  |
+| GET    | `/regions/{id}/risk/trend`      | Tren historis URS                 |
+| GET    | `/regions/{id}/recommendations` | Rekomendasi tindakan              |
+| POST   | `/routes/safe`                  | Rute aman (hindari risiko tinggi) |
+| GET    | `/docs`                         | Swagger UI                        |
 
 ---
 
 ## Lisensi
 
-Proyek ini dikembangkan untuk keperluan demo dan presentasi. Seluruh data yang digunakan bersifat simulasi.
+Dikembangkan untuk keperluan demo dan presentasi. Seluruh data bersifat simulasi.
+
+© 2026 URIS-AI

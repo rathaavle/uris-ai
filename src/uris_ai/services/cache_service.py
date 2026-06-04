@@ -11,11 +11,17 @@ import json
 import logging
 from typing import Any, Optional
 
-import redis
-
 from uris_ai.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Try to import redis — gracefully skip if not installed
+try:
+    import redis as redis_lib
+    _REDIS_AVAILABLE = True
+except ImportError:
+    _REDIS_AVAILABLE = False
+    redis_lib = None
 
 # Cache TTL constants (seconds)
 CACHE_TTL_RISK_SCORE = 300       # 5 minutes — risk scores update frequently
@@ -34,7 +40,7 @@ class CacheService:
     Requirements: 8.1
     """
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client=None):
         """
         Initialize the CacheService.
 
@@ -43,18 +49,23 @@ class CacheService:
                           created from application settings.
         """
         if redis_client is not None:
-            self._client: Optional[redis.Redis] = redis_client
+            self._client = redis_client
         else:
-            self._client = self._create_client()
+            self._client = self._create_client() if _REDIS_AVAILABLE else None
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _create_client(self) -> Optional[redis.Redis]:
+    def _create_client(self):
         """Create a Redis client from application settings."""
+        if not _REDIS_AVAILABLE:
+            return None
+        if not settings.redis_host or not settings.redis_password:
+            logger.info("Redis not configured, caching disabled")
+            return None
         try:
-            client = redis.Redis(
+            client = redis_lib.Redis(
                 host=settings.redis_host,
                 port=settings.redis_port,
                 password=settings.redis_password,

@@ -250,23 +250,4 @@ Jika backend belum jalan, frontend akan terus menampilkan loading screen (proxy 
 
 ---
 
-## 8. Rencana Deployment Azure (Free Tier)
-
-| Komponen               | Layanan Azure                 | Biaya                    |
-| ---------------------- | ----------------------------- | ------------------------ |
-| Frontend React (build) | Azure Static Web Apps         | Gratis                   |
-| Backend FastAPI        | Azure App Service F1          | Gratis (60 CPU min/hari) |
-| Database MySQL         | Azure Database for MySQL B1MS | Gratis (sudah aktif)     |
-
-Langkah deployment:
-
-1. Build frontend: `npm run build` → output ke `src/uris_ai/static/`
-2. Buat Azure Static Web Apps resource
-3. Configure App Service untuk FastAPI (Procfile / startup command)
-4. Set environment variables di App Service
-5. Update CORS di `main.py` untuk domain produksi
-6. Update `vite.config.js` untuk URL API produksi
-
----
-
-_Dokumen ini terakhir diperbarui: Juni 2026_
+_Dokumen ini terakhir diperbarui: 4 Juni 2026_

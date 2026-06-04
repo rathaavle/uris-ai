@@ -71,7 +71,8 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------
 
     # HTTPS redirect (applied first to redirect before other processing)
-    if settings.enforce_https:
+    # Di Azure App Service, TLS ditangani oleh load balancer — disable redirect
+    if settings.enforce_https and settings.app_env != "production":
         application.add_middleware(
             HTTPSRedirectMiddleware,
             enforce_https=True,
@@ -270,13 +271,15 @@ def create_app() -> FastAPI:
         finally:
             db_session.close()
 
-    # Mount static files (assets/) — setelah semua route didefinisikan
+    # Mount static files — setelah semua route didefinisikan
     if STATIC_DIR.exists():
-        application.mount(
-            "/assets",
-            StaticFiles(directory=str(STATIC_DIR / "assets")),
-            name="static",
-        )
+        # Mount /assets/ untuk JS/CSS bundle React
+        if (STATIC_DIR / "assets").exists():
+            application.mount(
+                "/assets",
+                StaticFiles(directory=str(STATIC_DIR / "assets")),
+                name="assets",
+            )
 
     # ------------------------------------------------------------------
     # Startup and shutdown events
@@ -348,15 +351,6 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------
     # Root and health endpoints
     # ------------------------------------------------------------------
-
-    @application.get("/", tags=["System"], summary="Root endpoint")
-    async def root() -> dict[str, Any]:
-        """Return basic application information."""
-        return {
-            "name": settings.app_name,
-            "version": settings.app_version,
-            "status": "running",
-        }
 
     @application.get("/health", tags=["System"], summary="Health check")
     async def health() -> dict[str, Any]:
@@ -493,12 +487,26 @@ def create_app() -> FastAPI:
                 ).isoformat(),
             }
 
+    # SPA catch-all — HARUS paling akhir setelah semua API routes
+    # Handle: logo/gambar di root path (/logo.png, dll) + React Router paths
+    @application.get("/{full_path:path}", tags=["System"], include_in_schema=False)
+    async def spa_fallback(full_path: str) -> FileResponse:
+        """Serve static files (logo, gambar) atau React SPA index.html."""
+        # Cek apakah request untuk file statis (ada ekstensi file)
+        if full_path and "." in full_path.split("/")[-1]:
+            static_file = STATIC_DIR / full_path
+            if static_file.exists() and static_file.is_file():
+                return FileResponse(str(static_file))
+        # Semua path lainnya → serve React SPA (index.html)
+        static_index = STATIC_DIR / "index.html"
+        if static_index.exists():
+            return FileResponse(static_index)
+        return JSONResponse(
+            {"message": "Frontend tidak ditemukan. Jalankan: cd frontend && npm run build"},
+            status_code=404,
+        )
+
     return application
-
-
-# ---------------------------------------------------------------------------
-# Application instance
-# ---------------------------------------------------------------------------
 
 app = create_app()
 

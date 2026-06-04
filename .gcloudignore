@@ -1,0 +1,43 @@
+# This file specifies files that are NOT uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore.
+.gcloudignore
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.hypothesis/
+htmlcov/
+.coverage
+
+# Frontend source — build output sudah ada di src/uris_ai/static/
+frontend/node_modules/
+frontend/src/
+frontend/.gitignore
+frontend/package-lock.json
+
+# Data dan ML models root — jangan ikut deploy
+# CATATAN: src/uris_ai/models/ (Python package) TIDAK di-exclude
+data/
+/models/
+
+# Docs, scripts dev, infrastructure
+docs/
+scripts/
+infrastructure/
+tests/
+
+# Logs
+logs/
+*.log
+
+# Env files
+.env
+.env.*
+
+# Zip artifacts
+*.zip

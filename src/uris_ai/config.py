@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     )
 
     # Azure Configuration
-    azure_subscription_id: str = Field(..., description="Azure subscription ID")
-    azure_tenant_id: str = Field(..., description="Azure tenant ID")
+    azure_subscription_id: Optional[str] = Field(None, description="Azure subscription ID")
+    azure_tenant_id: Optional[str] = Field(None, description="Azure tenant ID")
     azure_client_id: Optional[str] = Field(None, description="Azure client ID")
     azure_client_secret: Optional[str] = Field(None, description="Azure client secret")
     azure_resource_group: str = Field(
@@ -41,18 +41,18 @@ class Settings(BaseSettings):
     azure_location: str = Field(default="southeastasia", description="Azure region")
 
     # Azure Database for MySQL (Free Tier — Flexible Server B1MS)
-    azure_mysql_host: str = Field(..., description="MySQL server hostname")
+    azure_mysql_host: Optional[str] = Field(None, description="MySQL server hostname")
     azure_mysql_port: int = Field(default=3306, description="MySQL port")
-    azure_mysql_database: str = Field(..., description="MySQL database name")
-    azure_mysql_username: str = Field(..., description="MySQL username")
-    azure_mysql_password: str = Field(..., description="MySQL password")
-    azure_mysql_connection_string: str = Field(..., description="MySQL SQLAlchemy URL")
+    azure_mysql_database: Optional[str] = Field(None, description="MySQL database name")
+    azure_mysql_username: Optional[str] = Field(None, description="MySQL username")
+    azure_mysql_password: Optional[str] = Field(None, description="MySQL password")
+    azure_mysql_connection_string: Optional[str] = Field(None, description="MySQL SQLAlchemy URL")
 
     # Azure Blob Storage
-    azure_storage_account_name: str = Field(..., description="Azure Storage account name")
-    azure_storage_account_key: str = Field(..., description="Azure Storage account key")
-    azure_storage_connection_string: str = Field(
-        ..., description="Azure Storage connection string"
+    azure_storage_account_name: Optional[str] = Field(None, description="Azure Storage account name")
+    azure_storage_account_key: Optional[str] = Field(None, description="Azure Storage account key")
+    azure_storage_connection_string: Optional[str] = Field(
+        None, description="Azure Storage connection string"
     )
     azure_storage_container_raw_data: str = Field(
         default="raw-data", description="Container for raw data"
@@ -62,25 +62,25 @@ class Settings(BaseSettings):
     )
 
     # Azure Key Vault
-    azure_key_vault_name: str = Field(..., description="Azure Key Vault name")
-    azure_key_vault_url: str = Field(..., description="Azure Key Vault URL")
+    azure_key_vault_name: Optional[str] = Field(None, description="Azure Key Vault name")
+    azure_key_vault_url: Optional[str] = Field(None, description="Azure Key Vault URL")
 
     # Azure Cache for Redis
-    redis_host: str = Field(..., description="Redis host")
+    redis_host: Optional[str] = Field(None, description="Redis host")
     redis_port: int = Field(default=6380, description="Redis port")
-    redis_password: str = Field(..., description="Redis password")
-    redis_url: str = Field(..., description="Redis connection URL")
+    redis_password: Optional[str] = Field(None, description="Redis password")
+    redis_url: Optional[str] = Field(None, description="Redis connection URL")
 
     # Azure Machine Learning
-    azure_ml_workspace_name: str = Field(..., description="Azure ML workspace name")
-    azure_ml_resource_group: str = Field(..., description="Azure ML resource group")
-    azure_ml_subscription_id: str = Field(..., description="Azure ML subscription ID")
+    azure_ml_workspace_name: Optional[str] = Field(None, description="Azure ML workspace name")
+    azure_ml_resource_group: Optional[str] = Field(None, description="Azure ML resource group")
+    azure_ml_subscription_id: Optional[str] = Field(None, description="Azure ML subscription ID")
 
     # Azure Active Directory
-    azure_ad_tenant_id: str = Field(..., description="Azure AD tenant ID")
-    azure_ad_client_id: str = Field(..., description="Azure AD client ID")
-    azure_ad_client_secret: str = Field(..., description="Azure AD client secret")
-    azure_ad_authority: str = Field(..., description="Azure AD authority URL")
+    azure_ad_tenant_id: Optional[str] = Field(None, description="Azure AD tenant ID")
+    azure_ad_client_id: Optional[str] = Field(None, description="Azure AD client ID")
+    azure_ad_client_secret: Optional[str] = Field(None, description="Azure AD client secret")
+    azure_ad_authority: Optional[str] = Field(None, description="Azure AD authority URL")
 
     # External APIs
     weather_api_url: str = Field(
@@ -114,7 +114,10 @@ class Settings(BaseSettings):
     dashboard_port: int = Field(default=8501, description="Dashboard port")
 
     # Security
-    secret_key: str = Field(..., description="Secret key for JWT")
+    secret_key: str = Field(
+        default="urisai-default-secret-change-in-production-2024",
+        description="Secret key for JWT"
+    )
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(
         default=30, description="Access token expiration in minutes"

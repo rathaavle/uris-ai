@@ -1,0 +1,43 @@
+# Git
+.git/
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.hypothesis/
+htmlcov/
+.coverage
+*.coverage
+
+# Dev files
+.env.backup.*
+.env.example
+pyproject.toml
+README.md
+
+# Frontend source (build output sudah di src/uris_ai/static/)
+frontend/
+
+# Data (jangan masuk image)
+data/
+models/
+
+# Docs & scripts dev
+docs/
+scripts/
+tests/
+
+# Infrastructure
+infrastructure/
+
+# Logs
+logs/
+*.log
