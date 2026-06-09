@@ -335,7 +335,7 @@ def main():
     log.info("║  URIS-AI — Import Data Raw ke MySQL          ║")
     log.info("╚══════════════════════════════════════════════╝")
 
-    engine = create_db_engine(settings.azure_mysql_connection_string)
+    engine = create_db_engine(settings.active_database_url)
     Base.metadata.create_all(bind=engine)
     session = create_session_factory(engine)()
 

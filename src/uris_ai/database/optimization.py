@@ -112,20 +112,19 @@ def create_performance_indexes(db_session: Session) -> Dict[str, Any]:
     
     for idx in indexes:
         try:
-            # MySQL: cek index via SHOW INDEX
-            check_query = text(f"""
+            # PostgreSQL: cek index via pg_indexes
+            check_query = text("""
                 SELECT COUNT(*) as cnt
-                FROM information_schema.statistics
-                WHERE table_schema = DATABASE()
-                AND index_name = :index_name
+                FROM pg_indexes
+                WHERE indexname = :index_name
             """)
             result = db_session.execute(check_query, {"index_name": idx["name"]}).fetchone()
-            
+
             if result and result[0] > 0:
                 logger.info(f"Index {idx['name']} already exists, skipping")
                 results["already_exists"].append(idx["name"])
                 continue
-            
+
             # Create index
             create_query = text(f"""
                 CREATE INDEX {idx['name']}
@@ -164,14 +163,14 @@ def analyze_query_performance(db_session: Session, query_text: str) -> Dict[str,
         Dictionary with query execution plan details
     """
     try:
-        # Get execution plan
-        explain_query = text(f"SET SHOWPLAN_TEXT ON; {query_text}; SET SHOWPLAN_TEXT OFF;")
+        # Get execution plan — PostgreSQL pakai EXPLAIN ANALYZE
+        explain_query = text(f"EXPLAIN ANALYZE {query_text}")
         result = db_session.execute(explain_query)
-        
+
         plan = []
         for row in result:
-            plan.append(str(row))
-        
+            plan.append(str(row[0]))
+
         return {
             "success": True,
             "plan": plan
@@ -196,24 +195,23 @@ def get_slow_queries(db_session: Session, min_duration_ms: int = 1000) -> List[D
         List of slow queries with execution statistics
     """
     try:
+        # PostgreSQL: pakai pg_stat_statements untuk slow query detection
         query = text("""
-            SELECT TOP 20
-                q.query_id,
-                qt.query_sql_text,
-                rs.avg_duration / 1000.0 as avg_duration_ms,
-                rs.max_duration / 1000.0 as max_duration_ms,
-                rs.count_executions,
-                rs.last_execution_time
-            FROM sys.query_store_query q
-            JOIN sys.query_store_query_text qt ON q.query_text_id = qt.query_text_id
-            JOIN sys.query_store_plan p ON q.query_id = p.query_id
-            JOIN sys.query_store_runtime_stats rs ON p.plan_id = rs.plan_id
-            WHERE rs.avg_duration / 1000.0 > :min_duration
-            ORDER BY rs.avg_duration DESC
+            SELECT
+                queryid,
+                query,
+                mean_exec_time as avg_duration_ms,
+                max_exec_time as max_duration_ms,
+                calls as count_executions,
+                last_call as last_execution_time
+            FROM pg_stat_statements
+            WHERE mean_exec_time > :min_duration
+            ORDER BY mean_exec_time DESC
+            LIMIT 20
         """)
-        
+
         result = db_session.execute(query, {"min_duration": min_duration_ms})
-        
+
         slow_queries = []
         for row in result:
             slow_queries.append({
@@ -224,9 +222,9 @@ def get_slow_queries(db_session: Session, min_duration_ms: int = 1000) -> List[D
                 "execution_count": row[4],
                 "last_execution": row[5]
             })
-        
+
         return slow_queries
-        
+
     except Exception as e:
         logger.error(f"Failed to retrieve slow queries: {e}")
         return []
@@ -244,13 +242,14 @@ def optimize_table_statistics(db_session: Session, table_name: str) -> bool:
         True if successful, False otherwise
     """
     try:
-        query = text(f"UPDATE STATISTICS {table_name} WITH FULLSCAN")
+        # PostgreSQL: ANALYZE untuk update statistik
+        query = text(f"ANALYZE {table_name}")
         db_session.execute(query)
         db_session.commit()
-        
+
         logger.info(f"Updated statistics for table {table_name}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Failed to update statistics for {table_name}: {e}")
         db_session.rollback()
@@ -268,24 +267,23 @@ def get_index_usage_stats(db_session: Session) -> List[Dict[str, Any]]:
         List of indexes with usage statistics
     """
     try:
+        # PostgreSQL: pakai pg_stat_user_indexes untuk index usage stats
         query = text("""
-            SELECT 
-                OBJECT_NAME(s.object_id) as table_name,
-                i.name as index_name,
-                s.user_seeks,
-                s.user_scans,
-                s.user_lookups,
-                s.user_updates,
-                s.last_user_seek,
-                s.last_user_scan
-            FROM sys.dm_db_index_usage_stats s
-            JOIN sys.indexes i ON s.object_id = i.object_id AND s.index_id = i.index_id
-            WHERE OBJECTPROPERTY(s.object_id, 'IsUserTable') = 1
-            ORDER BY s.user_seeks + s.user_scans + s.user_lookups DESC
+            SELECT
+                relname as table_name,
+                indexrelname as index_name,
+                idx_scan as user_seeks,
+                idx_tup_read as user_scans,
+                idx_tup_fetch as user_lookups,
+                0 as user_updates,
+                NULL as last_user_seek,
+                NULL as last_user_scan
+            FROM pg_stat_user_indexes
+            ORDER BY idx_scan + idx_tup_read + idx_tup_fetch DESC
         """)
-        
+
         result = db_session.execute(query)
-        
+
         stats = []
         for row in result:
             stats.append({
@@ -298,9 +296,9 @@ def get_index_usage_stats(db_session: Session) -> List[Dict[str, Any]]:
                 "last_user_seek": row[6],
                 "last_user_scan": row[7]
             })
-        
+
         return stats
-        
+
     except Exception as e:
         logger.error(f"Failed to retrieve index usage stats: {e}")
         return []

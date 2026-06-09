@@ -40,13 +40,24 @@ class Settings(BaseSettings):
     )
     azure_location: str = Field(default="southeastasia", description="Azure region")
 
-    # Azure Database for MySQL (Free Tier — Flexible Server B1MS)
-    azure_mysql_host: Optional[str] = Field(None, description="MySQL server hostname")
-    azure_mysql_port: int = Field(default=3306, description="MySQL port")
-    azure_mysql_database: Optional[str] = Field(None, description="MySQL database name")
-    azure_mysql_username: Optional[str] = Field(None, description="MySQL username")
-    azure_mysql_password: Optional[str] = Field(None, description="MySQL password")
-    azure_mysql_connection_string: Optional[str] = Field(None, description="MySQL SQLAlchemy URL")
+    # Database — PostgreSQL (Neon) — primary connection
+    # Format: postgresql+psycopg2://user:pass@host/db?sslmode=require
+    database_url: Optional[str] = Field(
+        None, description="PostgreSQL connection URL (Neon atau PostgreSQL provider lain)"
+    )
+
+    # Legacy: Azure Database for MySQL (deprecated — gunakan database_url)
+    azure_mysql_host: Optional[str] = Field(None, description="[Deprecated] MySQL server hostname")
+    azure_mysql_port: int = Field(default=3306, description="[Deprecated] MySQL port")
+    azure_mysql_database: Optional[str] = Field(None, description="[Deprecated] MySQL database name")
+    azure_mysql_username: Optional[str] = Field(None, description="[Deprecated] MySQL username")
+    azure_mysql_password: Optional[str] = Field(None, description="[Deprecated] MySQL password")
+    azure_mysql_connection_string: Optional[str] = Field(None, description="[Deprecated] MySQL SQLAlchemy URL")
+
+    @property
+    def active_database_url(self) -> Optional[str]:
+        """Return active database URL — prioritas database_url (Neon), fallback ke MySQL legacy."""
+        return self.database_url or self.azure_mysql_connection_string
 
     # Azure Blob Storage
     azure_storage_account_name: Optional[str] = Field(None, description="Azure Storage account name")

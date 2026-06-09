@@ -2,7 +2,7 @@
 Database utility functions for URIS-AI system.
 
 Provides functions for database connection, session management,
-and schema initialization. Uses PyMySQL for MySQL/Azure Database for MySQL.
+and schema initialization. Uses psycopg2 for PostgreSQL (Neon).
 """
 
 import urllib.parse
@@ -17,11 +17,11 @@ from .database import Base
 
 def create_db_engine(connection_string: str, echo: bool = False) -> Engine:
     """
-    Create a SQLAlchemy engine for Azure Database for MySQL.
+    Create a SQLAlchemy engine for PostgreSQL (Neon or any PostgreSQL provider).
 
     Accepts either:
-    - MySQL URL (mysql+pymysql://user:pass@host/db)
-    - Legacy ODBC string (Driver={...};Server=...;...) — converted automatically
+    - PostgreSQL URL (postgresql+psycopg2://user:pass@host/db?sslmode=require)
+    - SQLite URL (sqlite:///path/to/db) for local development
 
     Args:
         connection_string: Database connection string
@@ -30,47 +30,36 @@ def create_db_engine(connection_string: str, echo: bool = False) -> Engine:
     Returns:
         SQLAlchemy Engine instance
     """
-    if connection_string.startswith("mysql"):
-        # MySQL URL — SSL wajib untuk Azure Database for MySQL
-        # Gunakan creator function agar SSL diteruskan dengan benar ke PyMySQL
-        import pymysql
-        from sqlalchemy import event
+    if connection_string.startswith("postgresql") or connection_string.startswith("postgres"):
+        # Normalize postgres:// → postgresql+psycopg2://
+        url = connection_string
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgresql://") and "+psycopg2" not in url:
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-        base_url = connection_string.split("?")[0]
-
-        def _creator():
-            parts = base_url.replace("mysql+pymysql://", "").split("@")
-            creds, hostdb = parts[0], parts[1]
-            user, password = creds.split(":", 1)
-            import urllib.parse
-            password = urllib.parse.unquote(password)
-            host_port, db = hostdb.split("/", 1)
-            host, port = (host_port.split(":") + ["3306"])[:2]
-            return pymysql.connect(
-                host=host,
-                port=int(port),
-                user=user,
-                password=password,
-                database=db,
-                ssl={"ssl_disabled": False},
-                connect_timeout=10,
-            )
+        # Pastikan sslmode=require ada untuk Neon
+        if "sslmode" not in url:
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}sslmode=require"
 
         engine = create_engine(
-            "mysql+pymysql://",
-            creator=_creator,
+            url,
             echo=echo,
             pool_pre_ping=True,
             pool_recycle=3600,
+            # Neon pakai connection pooling, set pool size kecil
+            pool_size=5,
+            max_overflow=2,
         )
     elif connection_string.startswith("sqlite"):
         engine = create_engine(connection_string, echo=echo)
     else:
-        # Legacy ODBC string — convert to MySQL URL if possible,
-        # otherwise fall back to mssql+pyodbc
-        params = urllib.parse.quote_plus(connection_string)
-        url = f"mssql+pyodbc:///?odbc_connect={params}"
-        engine = create_engine(url, echo=echo, pool_pre_ping=True)
+        # Fallback untuk backward compatibility
+        raise ValueError(
+            f"Unsupported connection string format. "
+            f"Use postgresql+psycopg2://user:pass@host/db?sslmode=require"
+        )
     return engine
 
 

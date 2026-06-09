@@ -29,7 +29,13 @@ def get_engine():
     """Get or create the database engine."""
     global _engine
     if _engine is None:
-        _engine = create_db_engine(settings.azure_mysql_connection_string)
+        db_url = settings.active_database_url
+        if not db_url:
+            raise RuntimeError(
+                "Database URL tidak ditemukan. Set DATABASE_URL (PostgreSQL/Neon) "
+                "atau AZURE_MYSQL_CONNECTION_STRING di environment variables."
+            )
+        _engine = create_db_engine(db_url)
     return _engine
 
 

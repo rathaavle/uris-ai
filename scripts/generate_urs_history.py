@@ -12,9 +12,7 @@ from sqlalchemy import text
 from uris_ai.config import settings
 from uris_ai.models.db_utils import create_db_engine
 
-engine = create_db_engine(settings.azure_mysql_connection_string)
-
-# Base URS per region (ambil dari data saat ini)
+engine = create_db_engine(settings.active_database_url)
 # Akan di-fetch dari DB langsung
 now = datetime.now(timezone.utc)
 
@@ -25,16 +23,13 @@ with engine.connect() as conn:
         "FROM risk_scores ORDER BY region_id"
     )).fetchall()
 
-    # Hapus data historis lama (lebih dari 1 entry per region)
-    # Simpan hanya entry terbaru
+    # Hapus data historis lama, simpan hanya entry terbaru per region (PostgreSQL syntax)
     conn.execute(text("""
         DELETE FROM risk_scores
         WHERE id NOT IN (
-            SELECT max_id FROM (
-                SELECT MAX(id) as max_id
-                FROM risk_scores
-                GROUP BY region_id
-            ) as keep
+            SELECT MAX(id)
+            FROM risk_scores
+            GROUP BY region_id
         )
     """))
     conn.commit()

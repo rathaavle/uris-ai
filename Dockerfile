@@ -1,11 +1,12 @@
 # URIS-AI — FastAPI + React Static Files
 # Target: GCP Cloud Run (asia-southeast1)
-# PyMySQL is pure Python — no gcc/libmysqlclient needed
+# psycopg2-binary needs libpq for PostgreSQL (Neon)
 FROM python:3.12-slim
 
-# Only curl needed for healthcheck
+# libpq-dev untuk psycopg2, curl untuk healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

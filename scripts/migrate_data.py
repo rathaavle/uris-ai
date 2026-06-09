@@ -547,7 +547,7 @@ def main():
     try:
         # Create database engine and session
         logger.info("Connecting to database...")
-        engine = create_db_engine(settings.azure_mysql_connection_string)
+        engine = create_db_engine(settings.active_database_url)
         session_factory = create_session_factory(engine)
         session = session_factory()
         

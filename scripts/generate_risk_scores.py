@@ -10,7 +10,7 @@ from uris_ai.config import settings
 from uris_ai.models.database import Region, RiskScore
 from uris_ai.models.db_utils import create_db_engine
 
-engine = create_db_engine(settings.azure_mysql_connection_string)
+engine = create_db_engine(settings.active_database_url)
 Session = sessionmaker(bind=engine)
 session = Session()
 
